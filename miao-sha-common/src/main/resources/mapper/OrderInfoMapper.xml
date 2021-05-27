@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.geekq.miaosha.common.biz.mapper.OrderInfoMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.geekq.miaosha.common.biz.entity.OrderInfo">
+        <id column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="goods_id" property="goodsId" />
+        <result column="delivery_addr_id" property="deliveryAddrId" />
+        <result column="goods_name" property="goodsName" />
+        <result column="goods_count" property="goodsCount" />
+        <result column="goods_price" property="goodsPrice" />
+        <result column="order_channel" property="orderChannel" />
+        <result column="status" property="status" />
+        <result column="create_date" property="createDate" />
+        <result column="pay_date" property="payDate" />
+    </resultMap>
+
+    <resultMap id="BaseResultMapMiaoShaOrder" type="com.geekq.miaosha.common.biz.entity.MiaoshaOrder" >
+        <id column="id" property="id" jdbcType="BIGINT" />
+        <result column="user_id" property="userId" jdbcType="BIGINT" />
+        <result column="order_id" property="orderId" jdbcType="BIGINT" />
+        <result column="goods_id" property="goodsId" jdbcType="BIGINT" />
+    </resultMap>
+
+    <sql id="base_column">
+    id,user_id,goods_id,delivery_addr_id,goods_name,goods_count,goods_price,order_channel
+    ,status,create_date,pay_date
+    </sql>
+
+    <sql id="base_column_miaosha_order">
+    id,user_id,goods_id,order_id
+    </sql>
+
+
+    <insert id="insert" parameterType="com.geekq.miaosha.common.biz.entity.MiaoshaOrder" useGeneratedKeys="true" keyProperty="id" >
+    insert into order_info(user_id, goods_id, goods_name, goods_count, goods_price, order_channel, status, create_date)values( #{userId}, #{goodsId}, #{goodsName}, #{goodsCount}, #{goodsPrice}, #{orderChannel},#{status},#{createDate} )
+    </insert>
+
+
+</mapper>
