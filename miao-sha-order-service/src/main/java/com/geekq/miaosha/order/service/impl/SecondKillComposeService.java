@@ -170,7 +170,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 	@Transactional
 	@RedisDistributeLock(lockKey = "cancelorder",expireTime = 1000)
 	public boolean cancelSecondKillOrder(OrderInfo orderInfo) {
-		boolean deleteOrder=true;
+		boolean deleteOrder=false;
 		GoodsExtVo goods=new GoodsExtVo();
 		goods.setId(orderInfo.getGoodsId());
 		goods.setGoodsStock(orderInfo.getGoodsCount());
@@ -254,6 +254,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 	 * 可根据订单量设置是否读写分离
 	 * */
 	private OrderInfo syncFinishSecondKillInfoToDB(MiaoshaUser user, Long goodsId, int expireTime){
+		log.info("finishSecondKill.......");
 		OrderInfo orderInfo=new OrderInfo();
 		GoodsExtVo goods = goodsComposeService.getGoodsVoByGoodsId(goodsId);
 		int stock = goods.getStockCount();
@@ -278,11 +279,11 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		mm.setGoodsId(goodsId);
 		mm.setUser(user);
 		String msg = StringBeanUtil.beanToString(mm);
-		MQServiceFactory.create("rabbit","miaoshamessage").send(msg);
+		MQServiceFactory.create("rabbitmq","miaoshamessage").send(msg);
 		return orderInfo;
 	}
 	/*扣减数据库库存，并生成订单信息
-	 *
+	 *此处应使用分布式事务进行控制。
 	 * */
 	private OrderInfo reduceStockAndCreateOrderToDB(MiaoshaUser user, GoodsExtVo goodsVo, int expireTime){
 		OrderInfo orderInfo=new OrderInfo();
