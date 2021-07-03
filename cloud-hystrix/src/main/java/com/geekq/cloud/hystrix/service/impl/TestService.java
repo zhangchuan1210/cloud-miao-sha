@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class TestService implements ITestService {
     @Override
-    @HystrixCommand(fallbackMethod="testHystrix",commandProperties={@HystrixProperty(name="execution.isolation.thread.timeoutInMilliseconds",value="1000")})
+    @HystrixCommand(fallbackMethod="testHystrix",commandProperties={@HystrixProperty(name="execution.isolation.thread.timeoutInMilliseconds",value="10000")})
     public String testOk() {
 
         try {
