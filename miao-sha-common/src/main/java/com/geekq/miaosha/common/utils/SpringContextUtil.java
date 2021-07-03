@@ -20,6 +20,10 @@ public class SpringContextUtil implements ApplicationContextAware {
         SpringContextUtil.applicationContext = applicationContext;
     }
 
+    public static ApplicationContext getApplicationContext(){
+        return applicationContext;
+    }
+
 
     /**
      * 获取对象
@@ -39,4 +43,7 @@ public class SpringContextUtil implements ApplicationContextAware {
     public static <T> T getBean(String s,Class<T> tClass){
         return applicationContext.getBean(s,tClass);
     }
+
+
+
 }

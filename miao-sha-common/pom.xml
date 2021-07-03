@@ -45,7 +45,16 @@
         </dependency>
         <!--mybatis-plus依赖 end-->
 
-
+        <!--数据库start-->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid</artifactId>
+        </dependency>
+        <!--数据库end-->
 
         <!--spring 插件start-->
         <dependency>
