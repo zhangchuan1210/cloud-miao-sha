@@ -1,0 +1,124 @@
+mybatis数据访问源码解析
+
+1 spring集成mybatis后，在web应用程序启动的时候会将SqlSessionTemplate对象注入进去，
+SqlSessionTemplate就是数据访问的api类。
+2 在访问数据库之前会调用SqlSessionTemp的内部类SqlSessionInterceptor，这是一个动态代理对象，会调用里面的
+invoke方法。
+3 在2中的方法会调用SqlSessionUtils.getSqlSession（）方法获取一个SqlSession对象。其中getSqlSession方法
+会首先调用TransactionSynchronizationManager.getResource（sqlSessionFactory）方法获取sqlSession对象，
+如果该方法返回为null，就会再次调用sessionFactory.openSession(executorType)生成一个sqlSession对象。
+
+4 在真正执行DML语句之前会生成一个Connection对象。该对象是通过3中生成的sqlSession对象获取的。如果获取的
+connection对象为null，就会调用openConnection方法生成一个。
+5 4中的openConnection方法最终会调用TransactionSynchronizationManager.getResource(dataSource)获取一个ConnnectionHolder，
+如果ConnectionHolder为null，则继续调用fetchConnection(dataSource)获取Connection，同时如果激活了事务，会调用
+TransactionSynchronizationManager.bindResource方法将dataSource对象和Connection对象绑定在一起；
+如果ConnectionHolder不为null，直接返回该对象。
+
+
+mybatis源码
+
+org.mybatis.spring.SqlSessionTemplate.SqlSessionInterceptor#invoke(){
+    //获取sqlSession对象，SqlSessionUtil是联合mybatis和Spring事务的中介者对象
+            SqlSession sqlSession = SqlSessionUtils.getSqlSession(SqlSessionTemplate.this.sqlSessionFactory, SqlSessionTemplate.this.executorType, SqlSessionTemplate.this.exceptionTranslator);
+            Object unwrapped;
+                //执行之前会获取connnection连接
+                Object result = method.invoke(sqlSession, args);
+                if (!SqlSessionUtils.isSqlSessionTransactional(sqlSession, SqlSessionTemplate.this.sqlSessionFactory)) {
+                    sqlSession.commit(true);
+                }
+
+                unwrapped = result;
+}
+
+public static SqlSession getSqlSession(SqlSessionFactory sessionFactory, ExecutorType executorType, PersistenceExceptionTranslator exceptionTranslator) {
+        Assert.notNull(sessionFactory, "No SqlSessionFactory specified");
+        Assert.notNull(executorType, "No ExecutorType specified");
+        SqlSessionHolder holder = (SqlSessionHolder)TransactionSynchronizationManager.getResource(sessionFactory);
+        SqlSession session = sessionHolder(executorType, holder);
+        if (session != null) {
+            return session;
+        } else {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Creating a new SqlSession");
+            }
+
+            session = sessionFactory.openSession(executorType);
+            registerSessionHolder(sessionFactory, executorType, exceptionTranslator, session);
+            return session;
+        }
+    }
+
+private void openConnection() throws SQLException {
+        this.connection = DataSourceUtils.getConnection(this.dataSource);
+        this.autoCommit = this.connection.getAutoCommit();
+        this.isConnectionTransactional = DataSourceUtils.isConnectionTransactional(this.connection, this.dataSource);
+        LOGGER.debug(() -> {
+            return "JDBC Connection [" + this.connection + "] will" + (this.isConnectionTransactional ? " " : " not ") + "be managed by Spring";
+        });
+    }
+org.apache.ibatis.executor.BaseExecutor#getConnection(Log statementLog) throws SQLException {
+            Connection connection = this.transaction.getConnection();
+            return statementLog.isDebugEnabled() ? ConnectionLogger.newInstance(connection, statementLog, this.queryStack) : connection;
+        }
+      org.mybatis.spring.transaction.SpringManagedTransaction.getConnection() throws SQLException {
+                if (this.connection == null) {
+                    this.openConnection();
+                }
+
+                return this.connection;
+            }
+
+     private void openConnection() throws SQLException {
+        this.connection = DataSourceUtils.getConnection(this.dataSource);
+        this.autoCommit = this.connection.getAutoCommit();
+        this.isConnectionTransactional = DataSourceUtils.isConnectionTransactional(this.connection, this.dataSource);
+        LOGGER.debug(() -> {
+            return "JDBC Connection [" + this.connection + "] will" + (this.isConnectionTransactional ? " " : " not ") + "be managed by Spring";
+        });
+    }
+
+    org.springframework.jdbc.datasource.DataSourceUtils#getConnection（DataSource dataSource）{
+        doGetConnection(dataSource);
+    }
+    public static Connection doGetConnection(DataSource dataSource) throws SQLException {
+        Assert.notNull(dataSource, "No DataSource specified");
+        ConnectionHolder conHolder = (ConnectionHolder)TransactionSynchronizationManager.getResource(dataSource);
+        if (conHolder == null || !conHolder.hasConnection() && !conHolder.isSynchronizedWithTransaction()) {
+            logger.debug("Fetching JDBC Connection from DataSource");
+            Connection con = fetchConnection(dataSource);
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                try {
+                    ConnectionHolder holderToUse = conHolder;
+                    if (conHolder == null) {
+                        holderToUse = new ConnectionHolder(con);
+                    } else {
+                        conHolder.setConnection(con);
+                    }
+
+
+
+                    holderToUse.requested();
+                    TransactionSynchronizationManager.registerSynchronization(new DataSourceUtils.ConnectionSynchronization(holderToUse, dataSource));
+                    holderToUse.setSynchronizedWithTransaction(true);
+                    if (holderToUse != conHolder) {
+                        TransactionSynchronizationManager.bindResource(dataSource, holderToUse);
+                    }
+                } catch (RuntimeException var4) {
+                    releaseConnection(con, dataSource);
+                    throw var4;
+                }
+            }
+
+            return con;
+        } else {
+            conHolder.requested();
+            if (!conHolder.hasConnection()) {
+                logger.debug("Fetching resumed JDBC Connection from DataSource");
+                conHolder.setConnection(fetchConnection(dataSource));
+            }
+
+            return conHolder.getConnection();
+        }
+    }
+

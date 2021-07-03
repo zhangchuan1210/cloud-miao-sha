@@ -1,0 +1,183 @@
+gateway整体流程
+DispatcherHandler
+  -》RoutePredicateHandlerMapping
+     ->lookupRoute
+       ->FilteringWeHandler
+
+DispatcherHandler：所有请求的调度器，负载请求分发
+RoutePredicateHandlerMapping:路由谓语匹配器，用于路由的查找，以及找到路由后返回对应的WebHandler，DispatcherHandler会依次遍历HandlerMapping集合进行处理
+FilteringWebHandler : 使用Filter链表处理请求的WebHandler，RoutePredicateHandlerMapping找到路由后返回对应的FilteringWebHandler对请求进行处理，
+FilteringWebHandler负责组装Filter链表并调用链表处理请求。
+
+##############################DispatcherHandler##############################
+1)DispatcherHandler的handler执行顺序
+    校验handlerMapping
+    遍历Mapping获取mapping对应的handler(此处会找到gateway对应的 RoutePredicateHandlerMapping，并通过 RoutePredicateHandlerMapping获取handler（FilteringWebHandler）)
+    通过handler对应的HandlerAdapter对handler进行调用（gateway使用的 SimpleHandlerAdapter） 即 FilteringWebHandler与SimpleHandlerAdapter对应
+源码详情：
+public Mono<Void> handle(ServerWebExchange exchange) {
+    if (logger.isDebugEnabled()) {
+        ServerHttpRequest request = exchange.getRequest();
+        logger.debug("Processing " + request.getMethodValue() + " request for [" + request.getURI() + "]");
+    }
+    //校验handlerMapping集合是否为空
+    if (this.handlerMappings == null) {
+        return Mono.error(HANDLER_NOT_FOUND_EXCEPTION);
+    }
+    //依次遍历handlerMapping集合进行请求处理
+    return Flux.fromIterable(this.handlerMappings)
+            .concatMap(mapping ->
+            //通过mapping获取mapping对应的handler
+            //RoutePredicateHanMapping返回FilteringWebHandler
+            mapping.getHandler(exchange))
+            .next()
+            .switchIfEmpty(Mono.error(HANDLER_NOT_FOUND_EXCEPTION))
+            .flatMap(handler ->
+            //调用handler处理
+            invokeHandler(exchange, handler))
+            .flatMap(result -> handleResult(exchange, result));
+}
+
+public Mono<Object> getHandler(ServerWebExchange exchange) {
+  //抽象方法
+  return this.getHandlerInternal(exchange).map((handler) -> {
+      if (this.logger.isDebugEnabled()) {
+          this.logger.debug(exchange.getLogPrefix() + "Mapped to " + handler);
+      }
+
+      ServerHttpRequest request = exchange.getRequest();
+      if (this.hasCorsConfigurationSource(handler) || CorsUtils.isPreFlightRequest(request)) {
+          CorsConfiguration config = this.corsConfigurationSource != null ? this.corsConfigurationSource.getCorsConfiguration(exchange) : null;
+          CorsConfiguration handlerConfig = this.getCorsConfiguration(handler, exchange);
+          config = config != null ? config.combine(handlerConfig) : handlerConfig;
+          if (!this.corsProcessor.process(config, exchange) || CorsUtils.isPreFlightRequest(request)) {
+              return REQUEST_HANDLED_HANDLER;
+          }
+      }
+
+      return handler;
+  });
+}
+
+ private Mono<HandlerResult> invokeHandler(ServerWebExchange exchange, Object handler) {
+    if (this.handlerAdapters != null) {
+        for (HandlerAdapter handlerAdapter : this.handlerAdapters) {
+        //判断当前handlerAdapter与handler是否匹配
+            if (handlerAdapter.supports(handler)) {
+                return handlerAdapter.handle(exchange, handler);
+            }
+        }
+    }
+    return Mono.error(new IllegalStateException("No HandlerAdapter: " + handler));
+ }
+
+########################RoutePredicateHandlerMapping##############################
+2)RoutePredicateHandlerMapping的执行顺序
+    通过路由定位器获取全部路由（RouteLocator）
+    通过路由的谓语（Predicate）过滤掉不可用的路由信息
+    查找到路由信息后将路由信息设置当上下文环境中（GATEWAY_ROUTE_ATTR）
+    返回gatway自定的webhandler（FilteringWebHandler）
+源码：
+protected Mono<?> getHandlerInternal(ServerWebExchange exchange) {
+   if (this.managementPortType == RoutePredicateHandlerMapping.ManagementPortType.DIFFERENT && this.managementPort != null && exchange.getRequest().getURI().getPort() == this.managementPort) {
+       return Mono.empty();
+   } else {
+       exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_HANDLER_MAPPER_ATTR, this.getSimpleName());
+       return this.lookupRoute(exchange).flatMap((r) -> {
+           exchange.getAttributes().remove(ServerWebExchangeUtils.GATEWAY_PREDICATE_ROUTE_ATTR);
+           if (this.logger.isDebugEnabled()) {
+               this.logger.debug("Mapping [" + this.getExchangeDesc(exchange) + "] to " + r);
+           }
+
+           exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR, r);
+           return Mono.just(this.webHandler);
+       }).switchIfEmpty(Mono.empty().then(Mono.fromRunnable(() -> {
+           exchange.getAttributes().remove(ServerWebExchangeUtils.GATEWAY_PREDICATE_ROUTE_ATTR);
+           if (this.logger.isTraceEnabled()) {
+               this.logger.trace("No RouteDefinition found for [" + this.getExchangeDesc(exchange) + "]");
+           }
+
+       })));
+   }
+}
+
+
+ #########org.springframework.web.reactive.result.SimpleHandlerAdapter#########
+ public Mono<HandlerResult> handle(ServerWebExchange exchange, Object handler) {
+     WebHandler webHandler = (WebHandler) handler;
+     //调用handler的handle方法处理请求
+     Mono<Void> mono = webHandler.handle(exchange);
+     return mono.then(Mono.empty());
+ }
+
+####org.springframework.cloud.gateway.handler.FilteringWebHandler######
+3)FilteringWebHandler的执行顺序
+     构建一个包含全局过滤器的集合（combined）
+     获取上下中的路由信息GATEWAY_ROUTE_ATTR
+     将路由里的过滤器添加到集合中（combined）
+     对过滤器集合进行排序操作
+     通过过滤器集合组装过滤器链表，并进行调用（DefaultGatewayFilterChain与Servlet中的FilterChain与原理是一致的）
+     通过过滤器来处理请求到具体业务服务
+源码
+public Mono<Void> handle(ServerWebExchange exchange) {
+       Route route = (Route)exchange.getRequiredAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
+       List<GatewayFilter> gatewayFilters = route.getFilters();
+       List<GatewayFilter> combined = new ArrayList(this.globalFilters);
+       combined.addAll(gatewayFilters);
+       AnnotationAwareOrderComparator.sort(combined);
+       if (logger.isDebugEnabled()) {
+           logger.debug("Sorted gatewayFilterFactories: " + combined);
+       }
+
+       return (new FilteringWebHandler.DefaultGatewayFilterChain(combined)).filter(exchange);
+   }
+
+##############org.springframework.cloud.gateway.filter.factory.HystrixGatewayFilterFactory#########################
+
+ public GatewayFilter apply(HystrixGatewayFilterFactory.Config config) {
+       if (config.setter == null) {
+           Assert.notNull(config.name, "A name must be supplied for the Hystrix Command Key");
+           HystrixCommandGroupKey groupKey = Factory.asKey(this.getClass().getSimpleName());
+           HystrixCommandKey commandKey = com.netflix.hystrix.HystrixCommandKey.Factory.asKey(config.name);
+           config.setter = Setter.withGroupKey(groupKey).andCommandKey(commandKey);
+       }
+
+       return new GatewayFilter() {
+           public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+               return Mono.deferWithContext((context) -> {
+                   HystrixGatewayFilterFactory.RouteHystrixCommand command = HystrixGatewayFilterFactory.this.new RouteHystrixCommand(HystrixGatewayFilterFactory.this.createCommandSetter(config, exchange), config.fallbackUri, exchange, chain, context);
+                   return Mono.create((s) -> {
+                       Observable var10000 = command.toObservable();
+                       Action1 var10001 = s::success;
+                       Action1 var10002 = s::error;
+                       s.getClass();
+                       Subscription sub = var10000.subscribe(var10001, var10002, s::success);
+                       s.onCancel(sub::unsubscribe);
+                   }).onErrorResume((throwable) -> {
+                       if (throwable instanceof HystrixRuntimeException) {
+                           HystrixRuntimeException e = (HystrixRuntimeException)throwable;
+                           FailureType failureType = e.getFailureType();
+                           switch(failureType) {
+                           case TIMEOUT:
+                               return Mono.error(new TimeoutException());
+                           case SHORTCIRCUIT:
+                               return Mono.error(new ServiceUnavailableException());
+                           case COMMAND_EXCEPTION:
+                               Throwable cause = e.getCause();
+                               if (cause instanceof ResponseStatusException || AnnotatedElementUtils.findMergedAnnotation(cause.getClass(), ResponseStatus.class) != null) {
+                                   return Mono.error(cause);
+                               }
+                           }
+                       }
+
+                       return Mono.error(throwable);
+                   }).then();
+               });
+           }
+
+           public String toString() {
+               return GatewayToStringStyler.filterToStringCreator(HystrixGatewayFilterFactory.this).append("name", config.getName()).append("fallback", config.fallbackUri).toString();
+           }
+       };
+   }
+

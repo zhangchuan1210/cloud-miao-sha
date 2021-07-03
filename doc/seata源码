@@ -1,0 +1,165 @@
+实现分布式事务的核心要点：
+
+事务的持久化，事务所处的各种状态事务参与方的各种状态都需要持久化，当实例宕机时才能基于持久化的数据对事务回滚或提交，实现最终一致性
+定时对超时未完成事务的处理（继续尝试提交或回滚），即通过重试机制实现事务的最终一致性
+分布式事务的跨服务实例传播，当分布式事务跨多个实例时需要实现事务的传播，一般需要适配不同的rpc框架
+事务的隔离级别：大多数分布式事务为了性能，默认的隔离级别是读未提交
+幂等性：对于XA或者seata的AT这样的分布式事务来说，都已经默认实现了幂等性，而TCC、Saga这种接口级别实现的分布式事务都还需要业务开发者自己实现幂等性。
+
+
+seata自带的datasourceProxy在执行事务进行如下操作：
+    生成undolog日志，写入本地数据库；
+    注册分支事务，执行事务操作，并提交事务；将事务提交的结果发送给TC；
+
+
+RmBranch**Processor：TC回调处理器向RM发送commit、rollback请求，并调用相应的**RMHandle**执行具体的
+操作。
+**RMHandle**：执行从TC发送来的commit、rollback、deleteUndolog等请求，
+并通过**RMHandleManager**执行具体的业务方法。
+**RMHandleManager**：执行具体的commit、rollback等业务方法。
+
+事务模式
+1 AT
+
+AT 模式（参考链接 TBD）基于 支持本地 ACID 事务 的 关系型数据库：
+
+一阶段 prepare 行为：在本地事务中，一并提交业务数据更新和相应回滚日志记录。
+二阶段 commit 行为：马上成功结束，自动 异步批量清理回滚日志。
+二阶段 rollback 行为：通过回滚日志，自动 生成补偿操作，完成数据回滚。
+整体机制
+两阶段提交协议的演变：
+
+一阶段：业务数据和回滚日志记录在同一个本地事务中提交，释放本地锁和连接资源。
+
+二阶段：
+
+提交异步化，非常快速地完成。
+回滚通过一阶段的回滚日志进行反向补偿。
+写隔离
+一阶段本地事务提交前，需要确保先拿到 全局锁 。
+拿不到 全局锁 ，不能提交本地事务。
+拿 全局锁 的尝试被限制在一定范围内，超出范围将放弃，并回滚本地事务，释放本地锁。
+2 TCC
+TCC 模式，不依赖于底层数据资源的事务支持：
+   一阶段 prepare 行为：调用 自定义 的 prepare 逻辑。
+   二阶段 commit 行为：调用 自定义 的 commit 逻辑。
+   二阶段 rollback 行为：调用 自定义 的 rollback 逻辑。
+所谓 TCC 模式，是指支持把 自定义 的分支事务纳入到全局事务的管理中。
+
+
+GlobalTransactionalInterceptor：全局事务切面逻辑，注册全局事务
+TccActionInterceptor：TCC事务切面逻辑，会执行ActionInterceptorHandler中的process方法
+ActionInterceptorHandler：注册TCC分支事务
+TCCResourceManager：保存 TCC Resources，便于后续回调
+
+3 XA
+
+
+
+分布式事务流程
+io.seata.spring.annotation.GlobalTransactionalInterceptor#handleGlobalTransaction
+    -》io.seata.tm.api.TransactionalTemplate#execute
+    //开启全局事务，TM向TC发送开启全局事务的请求
+1      -》io.seata.tm.api.TransactionalTemplate#beginTransaction
+         -》io.seata.tm.api.DefaultGlobalTransaction#begin(int, java.lang.String)
+              //此处的角色判断有关键的作用
+          //表明当前是全局事务的发起者（Launcher）还是参与者（Participant）
+          //如果在分布式事务的下游系统方法中也加上GlobalTransactional注解
+          //那么它的角色就是Participant，即会忽略后面的begin就退出了
+          //判断是发起者（Launcher）还是参与者（Participant）是根据当前上下文是否已存在XID来判断
+         //没有XID的就是Launcher，已经存在XID的就是Participant
+            if (role != GlobalTransactionRole.Launcher)
+
+            else
+            -》io.seata.tm.DefaultTransactionManager#begin
+               -》io.seata.tm.DefaultTransactionManager#syncCall
+               //向netty发送事务同步信息
+                  -》io.seata.core.rpc.netty.AbstractNettyRemotingClient#sendSyncRequest(java.lang.Object)
+            -》io.seata.core.context.RootContext#bind（this.xid）
+      //TM所在的类（事务发起方）（@GlobalTransaction）执行业务方法
+2      -》 try {
+                   rs = business.execute();
+               } catch (Throwable var17) {
+                   ex = var17;
+                   this.completeTransactionAfterThrowing(txInfo, tx, var17);
+                   throw var17;
+               }
+      //TM向TC发送提交全局事务的请求
+3      -》io.seata.tm.api.TransactionalTemplate#commitTransaction
+在在在在在-io.seata.tm.api.DefaultGlobalTransaction.commit
+         在在在-》io.seata.tm.DefaultTransactionManager#commit(String xid)
+         在在在    if (this.role == GlobalTransactionRole.Participant)
+         在在在    -》io.seata.tm.DefaultTransactionManager#syncCall
+         在在在        -》io.seata.core.rpc.netty.AbstractNettyRemotingClient#sendSyncRequest(java.lang.Object)
+4      -》io.seata.tm.api.TransactionalTemplate#resumeGlobalLockConfig
+        //抽象方法，空实现
+5      -》io.seata.tm.api.TransactionalTemplate.triggerAfterCompletion
+6      -》io.seata.tm.api.TransactionalTemplate.cleanUp
+
+
+
+
+
+completeTransactionAfterThrowing方法详解（globalTransaction注解方法抛出异常）
+      -> io.seata.tm.api.TransactionalTemplate#completeTransactionAfterThrowing
+        ->io.seata.tm.api.TransactionalTemplate#rollbackTransaction
+           ->io.seata.tm.api.DefaultGlobalTransaction#rollback
+              ->io.seata.core.model.DefaultTransactionManager#rollback
+                 ->io.seata.tm.DefaultTransactionManager#syncCall
+                     //向tc发送回滚决议
+                     ->io.seata.core.rpc.netty.AbstractNettyRemotingClient#sendSyncRequest(java.lang.Object)
+
+                    //tc向rm发送回滚消息
+io.seata.core.rpc.processor.client.RmBranchRollbackProcessor#handleBranchRollback
+                           ->io.seata.rm.AbstractRMHandler#onRequest
+                                ->io.seata.core.protocol.transaction.AbstractTransactionRequest#handle
+                                   ->io.seata.rm.AbstractRMHandler#handle(io.seata.core.protocol.transaction.BranchRollbackRequest)
+                                      ->io.seata.rm.AbstractRMHandler#doBranchRollback
+                                         ->io.seata.core.model.ResourceManagerInbound#branchRollback
+                                           ->io.seata.rm.datasource.undo.UndoLogManager#undo
+
+                           //tm向tc发送回滚处理的结果
+                           ->io.seata.core.rpc.RemotingClient#sendAsyncResponse
+
+
+
+
+其中AT模式下会根据datasourceProxy执行相关操作：
+
+执行2中业务方法的时候会使用seata自带的datasourceProxy对象
+io.seata.rm.datasource.exec.AbstractDMLBaseExecutor#doExecute
+
+io.seata.rm.datasource.exec.AbstractDMLBaseExecutor#executeAutoCommitTrue
+
+ 将beforeImage和afterImage写入数据库，设置非自动提交，并且预执行事务
+ ->io.seata.rm.datasource.exec.AbstractDMLBaseExecutor#executeAutoCommitFalse
+    ->TableRecords beforeImage = this.beforeImage();
+      T result = this.statementCallback.execute(this.statementProxy.getTargetStatement(), args);
+      TableRecords afterImage = this.afterImage(beforeImage);
+      this.prepareUndoLog(beforeImage, afterImage);
+      return result;
+ ->io.seata.rm.datasource.ConnectionProxy#commit
+   ->io.seata.rm.datasource.ConnectionProxy#doCommit
+
+       //TM向TC注册分支事务；真正提交事务；RM向TC发送分支事务的提交成功情况（成功或失败）
+      ->io.seata.rm.datasource.ConnectionProxy#processGlobalTransactionCommit
+          ->io.seata.rm.datasource.ConnectionProxy#register
+             ->io.seata.rm.DefaultResourceManager#branchRegister
+               ->io.seata.core.model.ResourceManagerOutbound#branchRegister
+                  ->io.seata.core.rpc.netty.AbstractNettyRemotingClient#sendSyncRequest(java.lang.Object)
+          ->io.seata.rm.datasource.undo.UndoLogManagerFactory#getUndoLogManager
+          ->java.sql.Connection#commit
+          ->io.seata.rm.datasource.ConnectionProxy#report
+
+
+TCC模式下则会通过TCCResourceManager回调
+@TwoPhaseBusinessAction(name = "DubboTccActionOne", commitMethod = "commit", rollbackMethod = "rollback")
+注解中的commit或者rollback方法
+
+
+
+
+
+
+
+

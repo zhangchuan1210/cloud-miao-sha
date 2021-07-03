@@ -1,0 +1,67 @@
+com.netflix.hystrix.contrib.javanica.aop.aspectj.HystrixCommandAspect.methodsAnnotatedWithHystrixCommand
+  -》com.netflix.hystrix.contrib.javanica.command.CommandExecutor.execute
+    -》com.netflix.hystrix.HystrixCommand.execute
+      -》com.netflix.hystrix.HystrixCommand.queue
+          -》final Future<R> delegate = this.toObservable().toBlocking().toFuture();
+                    Future<R> f = new Future<R>() {
+                        public boolean cancel(boolean mayInterruptIfRunning) {
+                            if (delegate.isCancelled()) {
+                                return false;
+                            } else {
+                                if ((Boolean)HystrixCommand.this.getProperties().executionIsolationThreadInterruptOnFutureCancel().get()) {
+                                    HystrixCommand.this.interruptOnFutureCancel.compareAndSet(false, mayInterruptIfRunning);
+                                }
+
+                                boolean res = delegate.cancel(HystrixCommand.this.interruptOnFutureCancel.get());
+                                if (!HystrixCommand.this.isExecutionComplete() && HystrixCommand.this.interruptOnFutureCancel.get()) {
+                                    Thread t = (Thread)HystrixCommand.this.executionThread.get();
+                                    if (t != null && !t.equals(Thread.currentThread())) {
+                                        t.interrupt();
+                                    }
+                                }
+
+                                return res;
+                            }
+                        }
+
+                        public boolean isCancelled() {
+                            return delegate.isCancelled();
+                        }
+
+                        public boolean isDone() {
+                            return delegate.isDone();
+                        }
+
+                        public R get() throws InterruptedException, ExecutionException {
+                            return delegate.get();
+                        }
+
+                        public R get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+                            return delegate.get(timeout, unit);
+                        }
+                    };
+                    if (f.isDone()) {
+                        try {
+                            f.get();
+                            return f;
+                        } catch (Exception var6) {
+                            Throwable t = this.decomposeException(var6);
+                            if (t instanceof HystrixBadRequestException) {
+                                return f;
+                            } else if (t instanceof HystrixRuntimeException) {
+                                HystrixRuntimeException hre = (HystrixRuntimeException)t;
+                                switch(hre.getFailureType()) {
+                                case COMMAND_EXCEPTION:
+                                case TIMEOUT:
+                                    return f;
+                                default:
+                                    throw hre;
+                                }
+                            } else {
+                                throw Exceptions.sneakyThrow(t);
+                            }
+                        }
+                    } else {
+                        return f;
+                    }
+      -》java.util.concurrent.Future.get()
