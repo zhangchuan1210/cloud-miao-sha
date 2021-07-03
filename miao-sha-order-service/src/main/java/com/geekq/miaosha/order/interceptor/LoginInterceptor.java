@@ -42,14 +42,14 @@ public class LoginInterceptor extends HandlerInterceptorAdapter {
 		/**
 		 * 获取调用 获取主要方法
 		 */
-		if(handler instanceof HandlerMethod) {
+		/*if(handler instanceof HandlerMethod) {
 			logger.info("打印拦截方法handler ：{} ",handler);
 			HandlerMethod hm = (HandlerMethod)handler;
 			MiaoshaUser user = getUser(request, response);
 
-			/**
+			*//**
 			 * 去拦截器
-			 */
+			 *//*
 //			if(user == null){
 //				response.sendRedirect("/do_login");
 //				return super.preHandle(request, response, handler);
@@ -81,10 +81,10 @@ public class LoginInterceptor extends HandlerInterceptorAdapter {
 	    	}else if(count < maxCount) {
 	    		 redisService.incr(ak, key);
 	    	}else {
-	    		/*render(response, ACCESS_LIMIT_REACHED);
-	    		return false;*/
+	    		*//*render(response, ACCESS_LIMIT_REACHED);
+	    		return false;*//*
 	    	}
-		}
+		}*/
 		return true;
 	}
 

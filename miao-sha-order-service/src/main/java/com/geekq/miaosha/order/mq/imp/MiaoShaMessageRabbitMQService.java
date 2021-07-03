@@ -41,7 +41,7 @@ public class MiaoShaMessageRabbitMQService implements IMQService {
         MiaoshaUser user = mm.getUser();
         long goodsId = mm.getGoodsId();
         //减库存 下订单 写入秒杀订单
-        miaoShaComposeService.doMiaoSha(user, goodsId,true);
+        miaoShaComposeService.afterSecondKill(user, goodsId,true);
         return null;
     }
 }

@@ -1,4 +1,4 @@
-package com.geekq.miaosha.order.redis.distributelock;
+package com.geekq.miaosha.order.redis.limiter;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,7 +7,12 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
-public @interface RedisDistributeLock {
-      String lockKey() default "lockKey";
-      long expireTime() default 10000;
+public @interface RedisLimiter {
+    String count() default "100";
+    String expire() default "3000";
+
+    String scriptLocation() default "";
+
+    String scriptString() default "";
+
 }

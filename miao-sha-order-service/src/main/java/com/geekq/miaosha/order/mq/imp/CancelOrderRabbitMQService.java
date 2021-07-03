@@ -47,7 +47,7 @@ public class CancelOrderRabbitMQService implements IMQService {
         Long id=orderDetailVo.getId();
         Integer status=orderDetailVo.getStatus();
         if(status.equals(0) ){
-            miaoShaComposeService.cancelOrder(orderDetailVo);
+            miaoShaComposeService.cancelSecondKillOrder(orderDetailVo);
         }
         return null;
     }

@@ -4,10 +4,8 @@ import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.order.interceptor.RequireLogin;
 import com.geekq.miaosha.order.redis.GoodsKey;
 import com.geekq.miaosha.order.redis.RedisService;
-import com.geekq.miaosha.order.service.GoodsComposeService;
-import com.geekq.miaosha.order.service.MiaoShaUserComposeService;
-import com.geekq.miaosha.order.service.MiaoShaComposeService;
-import com.geekq.miaosha.order.service.OrderComposeService;
+import com.geekq.miaosha.order.redis.limiter.RedisLimiter;
+import com.geekq.miaosha.order.service.*;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
 import com.geekq.miaosha.common.vo.GoodsExtVo;
 import io.swagger.annotations.Api;
@@ -26,6 +24,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Random;
+import java.util.RandomAccess;
 
 import static com.geekq.miaosha.common.enums.enums.ResultStatus.*;
 
@@ -33,28 +33,19 @@ import static com.geekq.miaosha.common.enums.enums.ResultStatus.*;
 @Controller
 @RequestMapping("/miaosha")
 @Api(tags = "秒杀服务")
-public class MiaoshaController implements InitializingBean {
+public class MiaoshaController {
 
     private static Logger logger = LoggerFactory.getLogger(MiaoshaController.class);
 
+    private boolean synchSecondKill =true;
     @Autowired
     MiaoShaUserComposeService userService;
 
     @Autowired
-    RedisService redisService;
-
-    @Autowired
-    GoodsComposeService goodsComposeService;
-
-    @Autowired
-    OrderComposeService orderComposeService;
-
-    @Autowired
     MiaoShaComposeService miaoShaComposeService;
 
-
-
-
+    @Autowired
+    private IVerficateService iVerficateService;
 
     /**
      * QPS:1306
@@ -66,17 +57,31 @@ public class MiaoshaController implements InitializingBean {
     @RequestMapping(value="/{path}/do_miaosha", method= RequestMethod.POST)
     @ResponseBody
     @ApiOperation(value="秒杀商品")
+    @RedisLimiter(scriptLocation = "lua/redislimit.lua")
     public ResultGeekQ<String> miaosha(Model model, MiaoshaUser user, @PathVariable("path") String path,
                                         @RequestParam("goodsId") long goodsId) {
         ResultGeekQ<String> result = ResultGeekQ.build();
-        String checkResult=miaoShaComposeService.checkMiaoSha(user, path, goodsId);
-        result.setData(checkResult);
+        user=new MiaoshaUser();
+        long id= new Random().nextLong();
+        user.setId(id);
+        user.setNickname("13640250671");
+        String checkResult=miaoShaComposeService.checkBeforeSecondKill(user, path, goodsId);
+        if("success".equals(checkResult)){
+            if(synchSecondKill){
+            checkResult=miaoShaComposeService.synProcessSecondKill(user, path, goodsId,false);
 
+            }else{
+            checkResult= miaoShaComposeService.asyProcessSecondKill(user, path, goodsId,false);
+
+            }
+        }
+        result.setData(checkResult);
         return result;
     }
 
 
     /**
+     * 秒杀之后，前段会回调获取秒杀结果
      * orderId：成功
      * -1：秒杀失败
      * 0： 排队中
@@ -93,7 +98,7 @@ public class MiaoshaController implements InitializingBean {
             return result;
         }
         model.addAttribute("user", user);
-        Long miaoshaResult = miaoShaComposeService.getMiaoshaResult(Long.valueOf(user.getNickname()), goodsId);
+        Long miaoshaResult = miaoShaComposeService.getSecondKillResult(Long.valueOf(user.getNickname()), goodsId);
         result.setData(miaoshaResult);
         return result;
     }
@@ -111,12 +116,12 @@ public class MiaoshaController implements InitializingBean {
             result.withError(SESSION_ERROR.getCode(), SESSION_ERROR.getMessage());
             return result;
         }
-        boolean check = miaoShaComposeService.checkVerifyCode(user, goodsId, verifyCode);
+        boolean check = iVerficateService.checkVerifyCode(user, goodsId, verifyCode);
         if (!check) {
             result.withError(REQUEST_ILLEGAL.getCode(), REQUEST_ILLEGAL.getMessage());
             return result;
         }
-        String path = miaoShaComposeService.createMiaoshaPath(user, goodsId);
+        String path = miaoShaComposeService.createSecondKillPath(user, goodsId);
         result.setData(path);
         return result;
     }
@@ -127,7 +132,7 @@ public class MiaoshaController implements InitializingBean {
                                                   ) {
         ResultGeekQ<String> result = ResultGeekQ.build();
         try {
-            BufferedImage image = miaoShaComposeService.createVerifyCodeRegister();
+            BufferedImage image = iVerficateService.createVerifyCodeRegister();
             OutputStream out = response.getOutputStream();
             ImageIO.write(image, "JPEG", out);
             out.flush();
@@ -153,7 +158,7 @@ public class MiaoshaController implements InitializingBean {
             return result;
         }
         try {
-            BufferedImage image = miaoShaComposeService.createVerifyCode(user, goodsId);
+            BufferedImage image = iVerficateService.createVerifyCode(user, goodsId);
             OutputStream out = response.getOutputStream();
             ImageIO.write(image, "JPEG", out);
             out.flush();
@@ -165,20 +170,5 @@ public class MiaoshaController implements InitializingBean {
             return result;
         }
     }
-    /**
-     * 系统初始化
-     *
-     * @throws Exception
-     */
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        List<GoodsExtVo> goodsList = goodsComposeService.listGoodsVo();
-        if (goodsList == null) {
-            return;
-        }
-        for (GoodsExtVo goods : goodsList) {
-            redisService.set(GoodsKey.getMiaoshaGoodsStock, "" + goods.getId(), goods.getStockCount());
-            //localOverMap.put(goods.getId(), false);
-        }
-    }
+
 }

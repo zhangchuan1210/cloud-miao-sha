@@ -12,8 +12,6 @@ return 1
 
 
 -- ip限流
-
-
 local key = "rate.limit:" .. KEYS[1]
 local limit = tonumber(ARGV[1])
 local expire_time = ARGV[2]

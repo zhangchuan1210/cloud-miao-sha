@@ -3,8 +3,12 @@ package com.geekq.miaosha.order.redis;
 
 import com.geekq.miaosha.common.utils.StringBeanUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.scripting.support.ResourceScriptSource;
 import org.springframework.stereotype.Service;
 
 
@@ -90,9 +94,6 @@ public class RedisService {
 	 * 删除
 	 * */
 	public boolean delete(KeyPrefix prefix, String key) {
-
-
-
 			//生成真正的key
 			String realKey  = prefix.getPrefix() + key;
 			boolean ret =  redisTemplate.delete(realKey);
@@ -162,8 +163,36 @@ public class RedisService {
 			return keys;
 
 	}
-	
 
+	/*
+	* 执行脚本文件
+	* */
+	public <T> Object execScript(String scriptPath,Class<T> tClass,List<String> keys,Object... args){
+		DefaultRedisScript redisScript=this.buildRedisScript(scriptPath,tClass);
+		return redisTemplate.execute(redisScript,keys,args);
+	}
+
+
+	private <T> DefaultRedisScript buildRedisScript(String scriptOrPath,Class<T> resultType){
+		// 执行 lua 脚本
+		DefaultRedisScript redisScript = new DefaultRedisScript<T>();
+		try{
+			if(StringUtils.isNotEmpty(scriptOrPath)){
+				if(scriptOrPath.contains(".lua")){
+					// 指定 lua 脚本
+					redisScript.setScriptSource(new ResourceScriptSource(new ClassPathResource(scriptOrPath)));
+				}else{
+					redisScript.setScriptText(scriptOrPath);
+				}
+			}
+			// 指定返回类型
+			redisScript.setResultType(resultType);
+		}catch (Exception e){
+			log.error(e.getMessage());
+		}
+
+		return redisScript;
+	}
 
 
 

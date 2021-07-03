@@ -40,6 +40,10 @@ public class RedisDistributeLockAspect {
         * 如果对应的key为空，则设置值并返回1
         * 如果不为空则返回0
         * 要有子线程定时监测锁过期情况
+        *
+        * 自旋阻塞可以改成发布订阅式的阻塞
+        *
+        * 有可能线程执行时间过长超出了预定的过期时间，需要启用监听程序延长过期时间
         * */
         log.info("try lock {}",lockKey);
         while(redisTemplate.opsForValue().setIfAbsent(lockKey,lockValue,exireTime, TimeUnit.MILLISECONDS)){
