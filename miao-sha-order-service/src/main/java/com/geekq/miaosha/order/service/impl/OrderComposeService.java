@@ -1,4 +1,4 @@
-package com.geekq.miaosha.order.service;
+package com.geekq.miaosha.order.service.impl;
 
 
 import cn.hutool.core.collection.CollUtil;
@@ -17,6 +17,7 @@ import com.geekq.miaosha.order.redis.RedisService;
 import com.geekq.miaosha.common.utils.StringBeanUtil;
 import com.geekq.miaosha.common.utils.DateTimeUtils;
 import com.geekq.miaosha.common.vo.GoodsExtVo;
+import com.geekq.miaosha.order.service.IOrderComposeService;
 import org.apache.commons.lang3.time.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,7 @@ import static com.geekq.miaosha.common.enums.Constanst.orderStaus.ORDER_NOT_PAY;
 
 
 @Service
-public class OrderComposeService {
+public class OrderComposeService implements IOrderComposeService {
 
 	@Autowired
 	private RedisService redisService ;

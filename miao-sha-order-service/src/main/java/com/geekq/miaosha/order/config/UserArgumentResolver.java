@@ -1,7 +1,7 @@
 package com.geekq.miaosha.order.config;
 
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
-import com.geekq.miaosha.order.service.MiaoShaUserComposeService;
+import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
 import com.geekq.miaosha.common.utils.UserContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;

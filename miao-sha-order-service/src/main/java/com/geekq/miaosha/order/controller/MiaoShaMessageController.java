@@ -1,6 +1,6 @@
 package com.geekq.miaosha.order.controller;
 
-import com.geekq.miaosha.order.service.MiaoShaMessageService;
+import com.geekq.miaosha.order.service.impl.MiaoShaMessageService;
 import com.geekq.miaosha.common.enums.enums.ResultStatus;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
 import org.apache.commons.lang3.StringUtils;

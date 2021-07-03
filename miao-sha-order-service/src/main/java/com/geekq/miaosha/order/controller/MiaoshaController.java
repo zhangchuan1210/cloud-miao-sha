@@ -2,17 +2,15 @@ package com.geekq.miaosha.order.controller;
 
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.order.interceptor.RequireLogin;
-import com.geekq.miaosha.order.redis.GoodsKey;
-import com.geekq.miaosha.order.redis.RedisService;
 import com.geekq.miaosha.order.redis.limiter.RedisLimiter;
 import com.geekq.miaosha.order.service.*;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
-import com.geekq.miaosha.common.vo.GoodsExtVo;
+import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
+import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -23,9 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
 import java.io.OutputStream;
-import java.util.List;
 import java.util.Random;
-import java.util.RandomAccess;
 
 import static com.geekq.miaosha.common.enums.enums.ResultStatus.*;
 
@@ -42,7 +38,7 @@ public class MiaoshaController {
     MiaoShaUserComposeService userService;
 
     @Autowired
-    MiaoShaComposeService miaoShaComposeService;
+    SecondKillComposeService miaoShaComposeService;
 
     @Autowired
     private IVerficateService iVerficateService;

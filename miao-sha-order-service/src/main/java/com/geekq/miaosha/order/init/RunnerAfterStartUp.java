@@ -1,23 +1,16 @@
 package com.geekq.miaosha.order.init;
 
 
-import com.geekq.miaosha.common.utils.SpringContextUtil;
-import com.geekq.miaosha.order.service.MiaoShaComposeService;
+import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @Component
 public class RunnerAfterStartUp implements ApplicationRunner {
     @Autowired
-    private MiaoShaComposeService miaoShaComposeService;
+    private SecondKillComposeService miaoShaComposeService;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {

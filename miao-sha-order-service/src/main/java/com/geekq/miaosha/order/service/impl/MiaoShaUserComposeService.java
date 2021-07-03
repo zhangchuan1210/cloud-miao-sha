@@ -1,4 +1,4 @@
-package com.geekq.miaosha.order.service;
+package com.geekq.miaosha.order.service.impl;
 
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.common.biz.service.MiaoshaUserService;
@@ -9,6 +9,7 @@ import com.geekq.miaosha.order.redis.RedisService;
 import com.geekq.miaosha.common.utils.MD5Utils;
 import com.geekq.miaosha.common.utils.UUIDUtil;
 import com.geekq.miaosha.common.vo.LoginVo;
+import com.geekq.miaosha.order.service.ISecondKillUserComposeService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +25,7 @@ import static com.geekq.miaosha.common.enums.enums.ResultStatus.*;
 
 
 @Service
-public class MiaoShaUserComposeService {
+public class MiaoShaUserComposeService implements ISecondKillUserComposeService {
 
     public static final String COOKIE_NAME_TOKEN = "token" ;
     private static Logger logger = LoggerFactory.getLogger(MiaoShaUserComposeService.class);

@@ -3,7 +3,7 @@ package com.geekq.miaosha.order.mq.imp;
 import com.geekq.miaosha.common.biz.entity.OrderInfo;
 import com.geekq.miaosha.order.mq.IMQService;
 import com.geekq.miaosha.order.mq.MQConfig;
-import com.geekq.miaosha.order.service.MiaoShaComposeService;
+import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import com.geekq.miaosha.common.utils.StringBeanUtil;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.Message;
@@ -23,7 +23,7 @@ public class CancelOrderRabbitMQService implements IMQService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
     @Autowired
-    MiaoShaComposeService miaoShaComposeService;
+    SecondKillComposeService miaoShaComposeService;
     @Override
     public String send(String msg) {
 

@@ -1,4 +1,4 @@
-package com.geekq.miaosha.order.service;
+package com.geekq.miaosha.order.service.impl;
 
 
 
@@ -8,13 +8,14 @@ import com.geekq.miaosha.common.biz.entity.MiaoshaGoods;
 import com.geekq.miaosha.common.biz.service.MiaoshaGoodsService;
 import com.geekq.miaosha.order.mapper.GoodsComposeMapper;
 import com.geekq.miaosha.common.vo.GoodsExtVo;
+import com.geekq.miaosha.order.service.IGoodsComposeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-public class GoodsComposeService {
+public class GoodsComposeService implements IGoodsComposeService {
 	
 	@Autowired
 	GoodsComposeMapper goodsComposeMapper;

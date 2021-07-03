@@ -3,7 +3,7 @@ package com.geekq.miaosha.order.interceptor;
 import com.alibaba.fastjson.JSON;
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.order.redis.RedisService;
-import com.geekq.miaosha.order.service.MiaoShaUserComposeService;
+import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
 import com.geekq.miaosha.common.enums.enums.ResultStatus;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
 import com.geekq.miaosha.common.utils.UserContext;
@@ -12,16 +12,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.OutputStream;
-
-import static com.geekq.miaosha.common.enums.enums.ResultStatus.ACCESS_LIMIT_REACHED;
-import static com.geekq.miaosha.common.enums.enums.ResultStatus.SESSION_ERROR;
 
 
 @Service

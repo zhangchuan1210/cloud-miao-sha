@@ -1,7 +1,7 @@
 package com.geekq.miaosha.order.controller;
 
-import com.geekq.miaosha.order.service.MiaoShaUserComposeService;
-import com.geekq.miaosha.order.service.MiaoShaComposeService;
+import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
+import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +27,7 @@ public class RegisterController {
     @Autowired
     private MiaoShaUserComposeService miaoShaUserComposeService;
     @Autowired
-    private MiaoShaComposeService miaoShaComposeService;
+    private SecondKillComposeService miaoShaComposeService;
 
 
     /**

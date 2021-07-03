@@ -2,7 +2,7 @@ package com.geekq.miaosha.order.controller;
 
 
 import com.geekq.miaosha.order.redis.redismanager.RedisLua;
-import com.geekq.miaosha.order.service.MiaoShaUserComposeService;
+import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
 import com.geekq.miaosha.common.vo.LoginVo;
 import org.slf4j.Logger;

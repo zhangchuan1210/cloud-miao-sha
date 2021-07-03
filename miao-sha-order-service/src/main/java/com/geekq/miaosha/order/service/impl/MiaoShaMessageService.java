@@ -1,9 +1,10 @@
-package com.geekq.miaosha.order.service;
+package com.geekq.miaosha.order.service.impl;
 
+import com.geekq.miaosha.order.service.ISecondKillMessageService;
 import org.springframework.stereotype.Service;
 
 @Service
-public class MiaoShaMessageService {
+public class MiaoShaMessageService implements ISecondKillMessageService {
 
 //    @Autowired
 //    private MiaoShaMessageDao messageDao;

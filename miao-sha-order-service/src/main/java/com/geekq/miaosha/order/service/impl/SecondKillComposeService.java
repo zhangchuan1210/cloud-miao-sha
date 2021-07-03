@@ -1,4 +1,4 @@
-package com.geekq.miaosha.order.service;
+package com.geekq.miaosha.order.service.impl;
 
 import cn.hutool.log.Log;
 import cn.hutool.log.LogFactory;
@@ -15,6 +15,7 @@ import com.geekq.miaosha.common.utils.StringBeanUtil;
 import com.geekq.miaosha.common.utils.MD5Utils;
 import com.geekq.miaosha.common.utils.UUIDUtil;
 import com.geekq.miaosha.common.vo.GoodsExtVo;
+import com.geekq.miaosha.order.service.ISecondKillComposeService;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +28,7 @@ import java.util.List;
 import static com.geekq.miaosha.common.enums.enums.ResultStatus.*;
 
 @Service
-public class MiaoShaComposeService{
+public class SecondKillComposeService implements ISecondKillComposeService {
 	
 	@Autowired
 	GoodsComposeService goodsComposeService;

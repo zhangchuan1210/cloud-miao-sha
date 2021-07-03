@@ -5,7 +5,7 @@ import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.common.biz.entity.OrderInfo;
 import com.geekq.miaosha.order.mq.IMQService;
 import com.geekq.miaosha.order.mq.MQConfig;
-import com.geekq.miaosha.order.service.MiaoShaComposeService;
+import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +16,7 @@ public class CheckMiaoShaRabbitMQService  implements IMQService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
     @Autowired
-    MiaoShaComposeService miaoShaComposeService;
+    SecondKillComposeService miaoShaComposeService;
     @Override
     public String send(String paramsJson) {
         rabbitTemplate.convertAndSend(MQConfig.CHECK_MIAOSHA_EXCHANGE,"checkmiaosha" , paramsJson);

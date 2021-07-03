@@ -6,7 +6,7 @@ import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.order.mq.IMQService;
 import com.geekq.miaosha.order.mq.MQConfig;
 import com.geekq.miaosha.order.mq.MiaoShaMessage;
-import com.geekq.miaosha.order.service.MiaoShaComposeService;
+import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import com.geekq.miaosha.common.utils.StringBeanUtil;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -22,7 +22,7 @@ public class MiaoShaMessageRabbitMQService implements IMQService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
     @Autowired
-    MiaoShaComposeService miaoShaComposeService;
+    SecondKillComposeService miaoShaComposeService;
 
     @Override
     public String send(String msg) {
