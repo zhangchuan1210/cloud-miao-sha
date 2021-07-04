@@ -73,16 +73,7 @@ public class OrderComposeService implements IOrderComposeService {
 		orderInfo.setOrderChannel(1);
 		orderInfo.setStatus(0);
 		orderInfo.setUserId(Long.valueOf(user.getNickname()));
-
 		boolean success= orderInfoService.save(orderInfo);
-		//发送延时订单取消通知
-		if(success){
-			String msg= StringBeanUtil.beanToString(orderInfo);
-			MQServiceFactory.create("rabbitmq","cancelorder").send(msg);
-
-		}else{
-			orderInfo=null;
-		}
 		return orderInfo;
 	}
 
@@ -95,8 +86,10 @@ public class OrderComposeService implements IOrderComposeService {
 		miaoshaOrder.setGoodsId(goodsId);
 		miaoshaOrder.setOrderId(orderId);
 		miaoshaOrder.setUserId(Long.valueOf(user.getNickname()));
-		miaoshaOrderService.save(miaoshaOrder);
-		redisService.set(OrderKey.getMiaoshaOrderByUidGid,""+user.getNickname()+"_"+goodsId,miaoshaOrder) ;
+		boolean save=miaoshaOrderService.save(miaoshaOrder);
+		if(save){
+		   redisService.set(OrderKey.getMiaoshaOrderByUidGid,""+user.getNickname()+"_"+goodsId,miaoshaOrder) ;
+		}
 		return miaoshaOrder;
 	}
 

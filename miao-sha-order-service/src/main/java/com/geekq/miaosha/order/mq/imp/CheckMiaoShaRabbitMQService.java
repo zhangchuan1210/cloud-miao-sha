@@ -18,22 +18,20 @@ public class CheckMiaoShaRabbitMQService  implements IMQService {
     @Autowired
     SecondKillComposeService miaoShaComposeService;
     @Override
-    public String send(String paramsJson) {
-        rabbitTemplate.convertAndSend(MQConfig.CHECK_MIAOSHA_EXCHANGE,"checkmiaosha" , paramsJson);
+    public String send(Object... params) {
+        rabbitTemplate.convertAndSend(MQConfig.CHECK_MIAOSHA_EXCHANGE,"checkmiaosha" , params);
         return "排队秒杀中，请稍后。。。。。";
     }
 
     @Override
     @RabbitListener(queues= MQConfig.CHECK_MIAOSHA_QUEUE)
-    public String receive(String paramsJson) {
+    public String receive(Object... params) {
+        String paramsJson=(String) params[0];
         JSONObject param=JSONObject.parseObject(paramsJson);
         String checkResult=miaoShaComposeService.doSecondKill(JSONObject.parseObject(param.get("user").toString(),MiaoshaUser.class),param.getString("path"),param.getLong("goodsId"));
         if("success".equals(checkResult)){
-            OrderInfo orderInfo= miaoShaComposeService.afterSecondKill(JSONObject.parseObject(param.get("user").toString(),MiaoshaUser.class),param.getLong("goodsId"),true);
-        }else{
-
+            boolean orderInfo= miaoShaComposeService.afterSecondKill(JSONObject.parseObject(param.get("user").toString(),MiaoshaUser.class),param.getLong("goodsId"),true);
         }
-
         return null;
     }
 }

@@ -19,17 +19,14 @@ public class RegisterMessageRabbitMQService implements IMQService {
     private RabbitTemplate rabbitTemplate;
 
     @Override
-    public String send(String msg) {
+    public String send(Object... params) {
 
-        log.info("send message:{}" , msg);
-        rabbitTemplate.convertAndSend(MQConfig.MIAOSHATEST,msg);
-//        rabbitTemplate.convertAndSend(MQConfig.EXCHANGE_TOPIC,"miaosha_*", msg);
 
         return null;
     }
 
     @Override
-    public String receive(String paramsJson) {
+    public String receive(Object... params) {
         return null;
     }
 }

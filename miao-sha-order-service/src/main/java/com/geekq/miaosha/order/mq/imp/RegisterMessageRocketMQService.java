@@ -6,12 +6,12 @@ import com.geekq.miaosha.order.mq.IMQService;
 * */
 public class RegisterMessageRocketMQService implements IMQService {
     @Override
-    public String send(String paramsJson) {
+    public String send(Object... params) {
         return null;
     }
 
     @Override
-    public String receive(String paramsJson) {
+    public String receive(Object... params) {
         return null;
     }
 }

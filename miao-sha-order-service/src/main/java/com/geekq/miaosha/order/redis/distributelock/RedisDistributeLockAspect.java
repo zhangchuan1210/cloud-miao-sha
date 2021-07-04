@@ -30,8 +30,15 @@ public class RedisDistributeLockAspect {
         Object result=null;
         Class<?> aClass = joinPoint.getTarget().getClass();//获得所在切点的该类的class对象，也就是UserController这个类的对象
         String name = joinPoint.getSignature().getName();//获取该切点所在方法的名称，也就是listUser
+        Method[] methods=aClass.getDeclaredMethods();
+        Method method=null;
+        for(int i=0,j=methods.length;i<j;++i){
+            if(methods[i].getName().equals(name)){
+                 method = methods[i];//通过反射获得该方法
+                break;
+            }
+        }
 
-        Method method = aClass.getMethod(name);//通过反射获得该方法
         RedisDistributeLock annotation = method.getAnnotation(RedisDistributeLock.class);//获得该注解
         String lockKey=name+"_"+annotation.lockKey();
         String lockValue= UUID.fastUUID().toString();
