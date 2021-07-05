@@ -63,7 +63,8 @@ public class RedisDistributeLockAspect {
          *   每个客户端加唯一标识
          *
          * */
-        if(redisTemplate.opsForValue().get(lockKey).equals(lockValue)){
+         String lockValueInCache=redisTemplate.opsForValue().get(lockKey);
+        if(lockValue.equals(lockValueInCache)){
             redisTemplate.delete(lockKey);
             log.info("release lock {}",lockKey);
         }

@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
 public @interface RedisLimiter {
-    String count() default "100";
+    String count() default "10000";
     String expire() default "3000";
 
     String scriptLocation() default "";

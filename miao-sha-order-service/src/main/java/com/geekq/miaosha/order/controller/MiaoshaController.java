@@ -1,10 +1,13 @@
 package com.geekq.miaosha.order.controller;
 
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
+import com.geekq.miaosha.common.utils.SpringContextUtil;
+import com.geekq.miaosha.common.vo.GoodsExtVo;
 import com.geekq.miaosha.order.interceptor.RequireLogin;
 import com.geekq.miaosha.order.redis.limiter.RedisLimiter;
 import com.geekq.miaosha.order.service.*;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
+import com.geekq.miaosha.order.service.impl.GoodsComposeService;
 import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
 import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import io.swagger.annotations.Api;
@@ -55,7 +58,7 @@ public class MiaoshaController {
     @ApiOperation(value="秒杀商品")
     @RedisLimiter(scriptLocation = "lua/redislimit.lua")
     public ResultGeekQ<String> miaosha(Model model, MiaoshaUser user, @PathVariable("path") String path,
-                                        @RequestParam("goodsId") long goodsId) {
+                                        @RequestParam("goodsId") long goodsId) throws InterruptedException {
         ResultGeekQ<String> result = ResultGeekQ.build();
         user=new MiaoshaUser();
         long id= new Random().nextLong();
@@ -64,7 +67,7 @@ public class MiaoshaController {
         String checkResult=miaoShaComposeService.checkBeforeSecondKill(user, path, goodsId);
         if("success".equals(checkResult)){
             if(synchSecondKill){
-               checkResult=miaoShaComposeService.synProcessSecondKill(user, path, goodsId,false);
+               checkResult=miaoShaComposeService.synProcessSecondKill(user, path, goodsId,true);
 
             }else{
             checkResult= miaoShaComposeService.asyProcessSecondKill(user, path, goodsId,false);
@@ -166,5 +169,24 @@ public class MiaoshaController {
             return result;
         }
     }
+
+    @RequestMapping(value = "/initStock",method=RequestMethod.GET)
+    @ResponseBody
+    public String initSecondKillStockInCache(){
+        miaoShaComposeService.prepareSecondKillStockToRedis();
+        return "success";
+    }
+
+    @RequestMapping(value="/test",method=RequestMethod.GET)
+    @ResponseBody
+    public void test(){
+        GoodsComposeService goodsComposeService= SpringContextUtil.getBean(GoodsComposeService.class);
+        GoodsExtVo goodsExtVo=new GoodsExtVo();
+
+        goodsExtVo.setId((long)2);
+        goodsComposeService.reduceStock(goodsExtVo);
+        return ;
+    }
+
 
 }

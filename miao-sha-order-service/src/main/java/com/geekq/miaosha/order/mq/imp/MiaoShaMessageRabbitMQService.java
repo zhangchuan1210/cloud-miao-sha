@@ -57,7 +57,7 @@ public class MiaoShaMessageRabbitMQService implements IMQService {
 
     @RabbitListener(queues=MQConfig.MIAOSHA_QUEUE)
     @RabbitHandler
-    public String receive(String in, Channel channel, Message message) throws IOException {
+    public String receive(String in, Channel channel, Message message) throws IOException, InterruptedException {
         log.info("receive message:"+in);
         MiaoShaMessage mm  = (MiaoShaMessage) JSONObject.parseObject(in,MiaoShaMessage.class);
         MiaoshaUser user = mm.getUser();

@@ -1,18 +1,16 @@
 package com.geekq.miaosha.order.mq.imp;
 
-import com.alibaba.fastjson.JSONObject;
 import com.geekq.miaosha.common.biz.entity.OrderInfo;
+import com.geekq.miaosha.common.utils.StringBeanUtil;
 import com.geekq.miaosha.order.mq.IMQService;
 import com.geekq.miaosha.order.mq.MQConfig;
 import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
-import com.geekq.miaosha.common.utils.StringBeanUtil;
 import com.rabbitmq.client.Channel;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +32,7 @@ public class CancelOrderRabbitMQService implements IMQService {
         rabbitTemplate.convertAndSend(MQConfig.DELAYED_EXCHANGE, MQConfig.DELAY_QUEUE_1, msg, new MessagePostProcessor() {
             @Override
             public Message postProcessMessage(Message message) throws AmqpException {
-                int delay_time=5*1000;
+                int delay_time=5*50*1000;
                 message.getMessageProperties().setHeader("x-delay",delay_time);
                 return message;
             }
@@ -67,6 +65,7 @@ public class CancelOrderRabbitMQService implements IMQService {
                 delete = miaoShaComposeService.cancelSecondKillOrder(orderDetailVo);
                 if (delete) {
                     channel.basicAck(tag, false);
+
                 } else {
                     channel.basicNack(tag, false, true);
                 }

@@ -30,7 +30,11 @@ public class CheckMiaoShaRabbitMQService  implements IMQService {
         JSONObject param=JSONObject.parseObject(paramsJson);
         String checkResult=miaoShaComposeService.doSecondKill(JSONObject.parseObject(param.get("user").toString(),MiaoshaUser.class),param.getString("path"),param.getLong("goodsId"));
         if("success".equals(checkResult)){
-            boolean orderInfo= miaoShaComposeService.afterSecondKill(JSONObject.parseObject(param.get("user").toString(),MiaoshaUser.class),param.getLong("goodsId"),true);
+            try {
+                boolean orderInfo= miaoShaComposeService.afterSecondKill(JSONObject.parseObject(param.get("user").toString(),MiaoshaUser.class),param.getLong("goodsId"),true);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
         return null;
     }

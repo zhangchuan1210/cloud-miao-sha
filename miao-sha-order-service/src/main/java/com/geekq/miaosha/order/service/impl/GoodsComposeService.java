@@ -11,6 +11,8 @@ import com.geekq.miaosha.common.vo.GoodsExtVo;
 import com.geekq.miaosha.order.service.IGoodsComposeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -33,23 +35,22 @@ public class GoodsComposeService implements IGoodsComposeService {
 		return goodsComposeMapper.getGoodsVoByGoodsId(goodsId);
 	}
 
+	//@Transactional(propagation=Propagation.REQUIRED)
 	public boolean reduceStock(GoodsExtVo goods) {
-		MiaoshaGoods g = new MiaoshaGoods();
-		g.setStockCount(goods.getStockCount()-1);
+
 		UpdateWrapper<MiaoshaGoods> temp=new UpdateWrapper<>();
 		temp.lambda().eq(MiaoshaGoods::getGoodsId,goods.getId())
-				.gt(MiaoshaGoods::getStockCount,0);
-		return miaoshaGoodsService.update(g,temp);
+				      .setSql("stock_count=stock_count-1");
+		return miaoshaGoodsService.update(temp);
 	}
 
 
     public boolean addStock(GoodsExtVo goods) throws RuntimeException{
 
-		MiaoshaGoods temp=new MiaoshaGoods();
-		temp.setStockCount(goods.getGoodsStock()+1);
 		UpdateWrapper<MiaoshaGoods> updateWrapper=new UpdateWrapper<>();
-		updateWrapper.lambda().eq(MiaoshaGoods::getGoodsId,goods.getId());
-        return miaoshaGoodsService.update(temp,updateWrapper);
+		updateWrapper.lambda().eq(MiaoshaGoods::getGoodsId,goods.getId())
+				              .setSql("stock_count=stock_count+1");
+        return miaoshaGoodsService.update(updateWrapper);
 
     }
 }

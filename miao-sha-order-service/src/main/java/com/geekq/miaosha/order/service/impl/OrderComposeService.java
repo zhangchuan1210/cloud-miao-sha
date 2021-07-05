@@ -21,6 +21,7 @@ import com.geekq.miaosha.order.service.IOrderComposeService;
 import org.apache.commons.lang3.time.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
@@ -49,7 +50,7 @@ public class OrderComposeService implements IOrderComposeService {
 	}
 
 
-    @Transactional
+   // @Transactional(propagation = Propagation.REQUIRED)
 	public OrderInfo createOrderInfoAndMIaoShaOrder(MiaoshaUser user, GoodsExtVo goods,int expireTime){
 		OrderInfo orderInfo=this.addOrderInfo(user,goods,expireTime);
 		MiaoshaOrder miaoshaOrder=this.saveMiaoShaOrderInfo(user,orderInfo.getGoodsId(),orderInfo.getId());
@@ -88,7 +89,7 @@ public class OrderComposeService implements IOrderComposeService {
 		miaoshaOrder.setUserId(Long.valueOf(user.getNickname()));
 		boolean save=miaoshaOrderService.save(miaoshaOrder);
 		if(save){
-		   redisService.set(OrderKey.getMiaoshaOrderByUidGid,""+user.getNickname()+"_"+goodsId,miaoshaOrder) ;
+		   redisService.set(OrderKey.getMiaoshaOrderByUidGid,""+user.getId()+"_"+goodsId,miaoshaOrder) ;
 		}
 		return miaoshaOrder;
 	}

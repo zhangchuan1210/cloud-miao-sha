@@ -7,6 +7,7 @@ import com.geekq.miaosha.common.biz.entity.MiaoshaOrder;
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.common.biz.entity.OrderInfo;
 import com.geekq.miaosha.common.utils.MD5Utils;
+import com.geekq.miaosha.common.utils.SpringContextUtil;
 import com.geekq.miaosha.common.utils.UUIDUtil;
 import com.geekq.miaosha.common.vo.GoodsExtVo;
 import com.geekq.miaosha.order.init.RunningAfterStartUp;
@@ -61,6 +62,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 			}
 	)
 	public String checkBeforeSecondKill(MiaoshaUser user, String path, long goodsId){
+		log.info("check second kill.....");
 		String checkResult="success";
 		/*if (user == null) {
 			checkResult=SESSION_ERROR.getMessage();
@@ -69,8 +71,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		/*
 		* 本地库存校验，挡住大部分请求
 		* */
-		//boolean over=localOverMap.get(goodsId);
-		boolean over=false;
+		boolean over=localOverMap.get(goodsId);
 		if(over){
 			checkResult=MIAO_SHA_OVER.getMessage();
 			return checkResult;
@@ -82,12 +83,11 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		if(! pathValue.equals(path)){
 			return checkResult;
 		}*/
-		log.info("check second kill.....");
+
 		return checkResult;
 	}
 
-
-	public String synProcessSecondKill(MiaoshaUser user, String path, long goodsId, boolean syncOrder){
+	public String synProcessSecondKill(MiaoshaUser user, String path, long goodsId, boolean syncOrder) throws InterruptedException {
 		String checkResult=this.doSecondKill(user,path,goodsId);
 		if("success".equals(checkResult)){
 			this.afterSecondKill(user,goodsId,syncOrder);
@@ -109,7 +109,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 			groupKey="doSecondKill",
 			threadPoolProperties = {
 					@HystrixProperty(name="coreSize",value="2"),
-					@HystrixProperty(name="maxQueueSize",value="30"),
+					@HystrixProperty(name="maxQueueSize",value="300"),
 			},
 			commandProperties={
 					@HystrixProperty(name="execution.isolation.thread.timeoutInMilliseconds",value="1000"),
@@ -139,7 +139,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
           如果先查再减需要保证两者操作的原子性，可以lua脚本
          */
         Long stock = redisService.decr(GoodsKey.getMiaoshaGoodsStock, "" + goodsId);
-        if (stock < 0) {
+        if (stock <= 0) {
             localOverMap.put(goodsId, true);
             checkResult=MIAO_SHA_OVER.getMessage();
             return checkResult;
@@ -153,20 +153,20 @@ public class SecondKillComposeService implements ISecondKillComposeService {
         如果秒杀商品库存量大，就需要使用消息对列队请求进行削峰
         *
         * */
-	public boolean afterSecondKill(MiaoshaUser user, Long goodsId, boolean syncOrder)  {
-		boolean result=false;
-		int expireTime=30;
+		public boolean afterSecondKill(MiaoshaUser user, Long goodsId, boolean syncOrder) throws InterruptedException {
+			boolean result = false;
+			int expireTime = 30;
 
-		if(syncOrder){//同步订单
+			if (syncOrder) {//同步订单
 
-				result=this.syncFinishSecondKillInfoToDB(user,goodsId,expireTime);
+				result = this.syncFinishSecondKillInfoToDB(user, goodsId, expireTime);
 
-		}else{//订单不同步,异步请求
-			result=this.asyncFinishSecondKillInfoToDB(user,goodsId);
+			} else {//订单不同步,异步请求
+				result = this.asyncFinishSecondKillInfoToDB(user, goodsId);
+			}
+
+			return result;
 		}
-
-		return result;
-	}
 
 
 	/*取消订单时，要注意数据库和缓存的数据最终一致性
@@ -182,7 +182,9 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		boolean addSuccessOrNot=goodsComposeService.addStock(goods);
 		if(addSuccessOrNot){
 			redisService.incr(GoodsKey.getMiaoshaGoodsStock, "" + goods.getId());
+			redisService.delete(OrderKey.getMiaoshaOrderByUidGid,""+orderInfo.getUserId()+"_"+orderInfo.getGoodsId());
 			deleteOrder= orderComposeService.deleteOrder(orderInfo.getId());
+
 		}
 		return deleteOrder;
 	}
@@ -247,16 +249,16 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 	 * 订单量较小时，可查询数据库。
 	 * 可根据订单量设置是否读写分离
 	 * */
-	private boolean syncFinishSecondKillInfoToDB(MiaoshaUser user, Long goodsId, int expireTime) {
+	private boolean syncFinishSecondKillInfoToDB(MiaoshaUser user, Long goodsId, int expireTime) throws InterruptedException {
 		log.info("finishSecondKill.......");
 		boolean orderInfo=true;
 		GoodsExtVo goods = goodsComposeService.getGoodsVoByGoodsId(goodsId);
 		int stock = goods.getStockCount();
 		if (stock > 0) {
 			//判断是否已经秒杀到了
-			MiaoshaOrder order = redisService.get(OrderKey.getMiaoshaOrderByUidGid, "" + Long.valueOf(user.getNickname()) + "_" + goodsId, MiaoshaOrder.class);
+			MiaoshaOrder order = redisService.get(OrderKey.getMiaoshaOrderByUidGid, "" + Long.valueOf(user.getId()) + "_" + goodsId, MiaoshaOrder.class);
 			if (order == null) {
-				orderInfo = this.saveAndDelaySecondKillOrder(user, goods, expireTime);
+				orderInfo = SpringContextUtil.getBean(SecondKillComposeService.class).saveAndDelaySecondKillOrder(user, goods, expireTime);
 
 			}
 		}
@@ -277,10 +279,10 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		}
 		return result;
 	}
-
+    @Transactional
 	public boolean saveAndDelaySecondKillOrder(MiaoshaUser user, GoodsExtVo goodsVo, int expireTime) {
 		boolean result = false;
-		try {
+
 			OrderInfo orderInfo = this.reduceStockAndCreateOrderToDB(user, goodsVo, expireTime);
 			if (null != orderInfo) {
 
@@ -288,46 +290,45 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 				MQServiceFactory.create("rabbitmq", "cancelorder").send(orderJsonStr);
 				result = true;
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			log.error(e);
-		}
+
 
 		return result;
 	}
 
 	/*扣减数据库库存，并生成订单信息
-	 *此处应使用分布式事务进行控制。
+	 *此处应使用分布式事务进行控制,暂时使用本地事务
 	 * 失败需要重试,每次重试会不会清掉全局事务，这个地方分布式事务需要验证是否有问题
 	 * */
 
-	private OrderInfo reduceStockAndCreateOrderToDB(MiaoshaUser user, GoodsExtVo goodsVo, int expireTime) throws InterruptedException {
+	private OrderInfo reduceStockAndCreateOrderToDB(MiaoshaUser user, GoodsExtVo goodsVo, int expireTime)  {
 		int retry = 5;
-		OrderInfo	orderInfo=null;
+		OrderInfo orderInfo = null;
 		boolean retrySuccess = false;
-
-		try {
-			while (!retrySuccess && retry-- > 0) {
+		while (!retrySuccess && retry-- > 0) {
+			log.info("重试："+retry);
+			try{
 				boolean success = goodsComposeService.reduceStock(goodsVo);
 				if (success) {
-				orderInfo = orderComposeService.createOrderInfoAndMIaoShaOrder(user, goodsVo, expireTime);
+					orderInfo = orderComposeService.createOrderInfoAndMIaoShaOrder(user, goodsVo, expireTime);
 				}
 				if (null != orderInfo) {
 					retrySuccess = true;
 					continue;
 				}
-				Thread.sleep(60);
+			}catch (Exception e){
+                e.printStackTrace();
 			}
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-			log.error(e);
-			throw e;
-		} finally {
-			if (!retrySuccess) {
-				log.warn("重试不成功，丢死信息请手动后台处理：{}，{}，{}", JSONObject.toJSONString(user), JSONObject.toJSONString(goodsVo), expireTime);
+			try {
+				Thread.sleep(6000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
-
 		}
+		if (!retrySuccess) {
+			log.warn("重试不成功，丢死信息请手动后台处理：{}，{}，{}", JSONObject.toJSONString(user), JSONObject.toJSONString(goodsVo), expireTime);
+            throw new RuntimeException();
+		}
+
 		return orderInfo;
 	}
 
