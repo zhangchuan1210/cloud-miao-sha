@@ -102,7 +102,11 @@ saga（未使用）
 
 
 阿里巴巴开源的分布式事务框架seata
-
+1 概念
+事务分组：是seata的资源逻辑，类似于服务实例。
+ 1 首先需要在程序中配置事务分组，通过（GlobalTransactionScanner 构造方法的txServiceGroup参数）构造
+ 2 程序通过service.vgroupMapping .[事务分组配置项]去获取TC集群的名字
+ 3 通过一定的前后缀+集群名称构建服务实例的名字，然后去对应的注册中心通过实例名拉取真实的服务实例列表。
 
 
 seata事务源码

@@ -234,3 +234,10 @@ protected void doCommit(DefaultTransactionStatus status) {
             throw new TransactionSystemException("Could not commit JDBC transaction", var5);
         }
     }
+
+
+备注事务中的异常
+1 如果执行事务操作的代码本身使用try、catch将异常捕获并未再次抛出给事务管理器，那么spring的事务是失效的
+2 spring捕获事务异常信息后执行completeTransactionAfterThrowing，并再次抛出异常，随后执行cleanupTransactionInfo（finally），
+之后就不再往下执行。也就是说即使有异常抛出，finally也会被执行，但异常抛出后，线程终止
+3 对于加了异常签名的方法，会先向上抛出异常，然后才执行方法代码里面的捕获异常操作

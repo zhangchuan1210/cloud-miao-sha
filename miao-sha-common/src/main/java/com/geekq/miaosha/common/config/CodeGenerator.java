@@ -14,12 +14,12 @@ import java.util.List;
 
 public class CodeGenerator {
 
-    private static final String module="cloud-consumer2-service";
-    private static final String dburl="jdbc:mysql://localhost:3306/seata_order?useUnicode=true&serverTimezone=UTC&characterEncoding=utf-8&allowMultiQueries=true&useSSL=false";
+    private static final String module="miao-sha-common";
+    private static final String dburl="jdbc:mysql://192.168.31.124:3306/miaosha?useUnicode=true&serverTimezone=UTC&characterEncoding=utf-8&allowMultiQueries=true&useSSL=false";
     private static final String username="root";
     private static final String password="zc142500";
-    private static final String packagename="com.geekq.cloud.consumer2service";
-    private static final String tablename="order_tbl";
+    private static final String packagename="com.geekq.miaosha.common.biz";
+    private static final String tablename="miaosha_fail_message";
 
     public static void main(String[] args) throws InterruptedException {
         AutoGenerator mpg = new AutoGenerator();
