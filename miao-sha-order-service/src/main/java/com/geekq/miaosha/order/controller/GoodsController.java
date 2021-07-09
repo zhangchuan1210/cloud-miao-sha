@@ -2,7 +2,7 @@ package com.geekq.miaosha.order.controller;
 
 
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
-import com.geekq.miaosha.common.entity.GoodsVoOrder;
+import com.geekq.miaosha.common.vo.GoodsVoOrder;
 import com.geekq.miaosha.order.interceptor.RequireLogin;
 import com.geekq.miaosha.order.redis.GoodsKey;
 import com.geekq.miaosha.order.redis.RedisService;

@@ -1,6 +1,8 @@
 package com.geekq.miaosha.order.controller;
 
 
+import cn.hutool.core.date.DateUtil;
+import com.geekq.miaosha.common.utils.HashUtil;
 import com.geekq.miaosha.order.redis.RedisService;
 import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
@@ -18,9 +20,10 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
-import static com.geekq.miaosha.common.enums.Constanst.COUNTLOGIN;
+import static com.geekq.miaosha.common.enums.Constanst.*;
 
 @Controller
 @RequestMapping("/login")
@@ -34,6 +37,7 @@ public class LoginController {
     private RedisService redisService;
 
     private final String visitScriptPath="lua/visit.lua";
+    private final int mod=1000000;
 
     @RequestMapping("/sayHello")
     public String sayHello() throws Exception {
@@ -45,16 +49,14 @@ public class LoginController {
     @RequestMapping("/to_login")
     public String tologin(LoginVo loginVo, Model model)  {
         logger.info(loginVo.toString());
-
-        //未完成
-       /*   RedisLua.vistorCount(COUNTLOGIN);
-        String count = RedisLua.getVistorCount(COUNTLOGIN).toString();
-        /
-        */
         String visitorId=loginVo.getNickname();
         List<String> keyList=new ArrayList<>();
+        String dayDate=DateUtil.format(new Date(),"YYYY-MM-dd");
         keyList.add(COUNTLOGIN);
-        Long count=(Long) redisService.execScript(visitScriptPath,Long.class,keyList,visitorId);
+        keyList.add(COUNTALLLOGIN);
+        keyList.add(dayDate+"_"+COUNTDAYLOGIN);
+        Long temp= HashUtil.getHash(visitorId,mod);
+        Long count=(Long) redisService.execScript(visitScriptPath,Long.class,keyList,visitorId,String.valueOf(temp));
         logger.info("访问网站的次数为:{}",count);
         model.addAttribute("count",count);
         return "login";

@@ -1,6 +1,6 @@
 package com.geekq.miaosha.common.utils;
 
-import com.geekq.miaosha.common.entity.Logininfo;
+import com.geekq.miaosha.common.vo.Logininfo;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 

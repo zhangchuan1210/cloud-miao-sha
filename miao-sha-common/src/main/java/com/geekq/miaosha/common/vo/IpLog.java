@@ -1,4 +1,4 @@
-package com.geekq.miaosha.common.entity;
+package com.geekq.miaosha.common.vo;
 
 import lombok.Getter;
 import lombok.Setter;

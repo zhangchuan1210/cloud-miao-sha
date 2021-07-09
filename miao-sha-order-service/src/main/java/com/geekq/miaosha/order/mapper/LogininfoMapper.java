@@ -1,6 +1,6 @@
 package com.geekq.miaosha.order.mapper;
 
-import com.geekq.miaosha.common.entity.Logininfo;
+import com.geekq.miaosha.common.vo.Logininfo;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

@@ -3,7 +3,7 @@ package com.geekq.miaosha.order.service.impl;
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.common.biz.service.MiaoshaUserService;
 import com.geekq.miaosha.order.redis.MiaoShaUserKey;
-import com.geekq.miaosha.common.entity.IpLog;
+import com.geekq.miaosha.common.vo.IpLog;
 import com.geekq.miaosha.common.exception.GlobleException;
 import com.geekq.miaosha.order.redis.RedisService;
 import com.geekq.miaosha.common.utils.MD5Utils;

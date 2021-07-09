@@ -1,4 +1,4 @@
-package com.geekq.miaosha.common.entity;
+package com.geekq.miaosha.common.vo;
 
 import com.geekq.miaosha.common.enums.Constants;
 import lombok.AllArgsConstructor;

@@ -5,6 +5,9 @@ public class Constanst {
 
     public static String COUNTLOGIN = "count:login";
 
+    public static String  COUNTALLLOGIN="count:all_login";
+    public static String  COUNTDAYLOGIN="count:day_login";
+
 
     public enum orderStaus{
         ORDER_NOT_PAY("新建未支付");
