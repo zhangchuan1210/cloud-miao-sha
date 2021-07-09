@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.geekq.miaosha.common.enums.enums.ResultStatus.*;
 
@@ -42,6 +43,8 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 
 	private Log log= LogFactory.get();
 
+	private AtomicInteger count=new AtomicInteger(0);
+
 	private ConcurrentHashMap<Long,Boolean> localOverMap = new ConcurrentHashMap();
 
 	@HystrixCommand(
@@ -49,13 +52,13 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 			groupKey="beforeSecondKill",
 			threadPoolProperties = {
                    @HystrixProperty(name="coreSize",value="2"),
-                   @HystrixProperty(name="maxQueueSize",value="30"),
+                   @HystrixProperty(name="maxQueueSize",value="3000"),
             },
 			commandProperties={
 					@HystrixProperty(name="execution.isolation.thread.timeoutInMilliseconds",value="1000"),
                     @HystrixProperty(name="metrics.rollingStats.timeInMilliseconds",value="16000"),
 					// 最小请求数
-					@HystrixProperty(name = "circuitBreaker.requestVolumeThreshold",value = "3"),
+					@HystrixProperty(name = "circuitBreaker.requestVolumeThreshold",value = "600"),
 					// 失败次数占请求的50%
 					@HystrixProperty(name = "circuitBreaker.errorThresholdPercentage",value = "50"),
 					@HystrixProperty(name="circuitBreaker.sleepWindowInMilliseconds",value= "6000")
@@ -115,10 +118,10 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 					@HystrixProperty(name="execution.isolation.thread.timeoutInMilliseconds",value="1000"),
 					@HystrixProperty(name="metrics.rollingStats.timeInMilliseconds",value="16000"),
 					// 最小请求数
-					@HystrixProperty(name = "circuitBreaker.requestVolumeThreshold",value = "3"),
+					@HystrixProperty(name = "circuitBreaker.requestVolumeThreshold",value = "300"),
 					// 失败次数占请求的50%
 				    @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage",value = "50"),
-					@HystrixProperty(name="circuitBreaker.sleepWindowInMilliseconds",value= "10000")
+					@HystrixProperty(name="circuitBreaker.sleepWindowInMilliseconds",value= "1000")
 			}
 	)
 	public String doSecondKill(MiaoshaUser user, String path, long goodsId){
@@ -128,7 +131,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
         /*判断是否重复秒杀
          *
          * */
-        MiaoshaOrder miaoshaOrder= redisService.get(OrderKey.getMiaoshaOrderByUidGid,""+user.getId()+"_"+goodsId,MiaoshaOrder.class) ;;
+        MiaoshaOrder miaoshaOrder= redisService.get(OrderKey.getMiaoshaOrderByUidGid,""+user.getNickname()+"_"+goodsId,MiaoshaOrder.class) ;;
         if(null !=miaoshaOrder){
             checkResult= REPEATE_MIAOSHA.getMessage();
             return checkResult;
@@ -162,6 +165,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 				result = this.syncFinishSecondKillInfoToDB(user, goodsId, expireTime);
 
 			} else {//订单不同步,异步请求
+
 				result = this.asyncFinishSecondKillInfoToDB(user, goodsId);
 			}
 
@@ -253,16 +257,16 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		log.info("finishSecondKill.......");
 		boolean orderInfo=true;
 		GoodsExtVo goods = goodsComposeService.getGoodsVoByGoodsId(goodsId);
-		int stock = goods.getStockCount();
-		if (stock > 0) {
-			//判断是否已经秒杀到了
-			MiaoshaOrder order = redisService.get(OrderKey.getMiaoshaOrderByUidGid, "" + Long.valueOf(user.getId()) + "_" + goodsId, MiaoshaOrder.class);
-			if (order == null) {
-				orderInfo = SpringContextUtil.getBean(SecondKillComposeService.class).saveAndDelaySecondKillOrder(user, goods, expireTime);
+        int stock = goods.getStockCount();
+        if (stock > 0) {
+            //判断是否已经秒杀到了
+            MiaoshaOrder order = redisService.get(OrderKey.getMiaoshaOrderByUidGid, "" + Long.valueOf(user.getNickname()) + "_" + goodsId, MiaoshaOrder.class);
+            if (order == null) {
+                orderInfo = SpringContextUtil.getBean(SecondKillComposeService.class).saveAndDelaySecondKillOrder(user, goods, expireTime);
 
-			}
-		}
-		return orderInfo;
+            }
+        }
+        return orderInfo;
 	}
 
 	/*
@@ -280,20 +284,16 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		return result;
 	}
     @Transactional
-	public boolean saveAndDelaySecondKillOrder(MiaoshaUser user, GoodsExtVo goodsVo, int expireTime) {
-		boolean result = false;
-
-			OrderInfo orderInfo = this.reduceStockAndCreateOrderToDB(user, goodsVo, expireTime);
-			if (null != orderInfo) {
-
-				String orderJsonStr=JSONObject.toJSONString(orderInfo);
-				MQServiceFactory.create("rabbitmq", "cancelorder").send(orderJsonStr);
-				result = true;
-			}
-
-
-		return result;
-	}
+    public boolean saveAndDelaySecondKillOrder(MiaoshaUser user, GoodsExtVo goodsVo, int expireTime) {
+        boolean result = false;
+        OrderInfo orderInfo = this.reduceStockAndCreateOrderToDB(user, goodsVo, expireTime);
+        if (null != orderInfo) {
+            String orderJsonStr = JSONObject.toJSONString(orderInfo);
+            MQServiceFactory.create("rabbitmq", "cancelorder").send(orderJsonStr);
+            result = true;
+        }
+        return result;
+    }
 
 	/*扣减数据库库存，并生成订单信息
 	 *此处应使用分布式事务进行控制,暂时使用本地事务
@@ -301,7 +301,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 	 * */
 
 	private OrderInfo reduceStockAndCreateOrderToDB(MiaoshaUser user, GoodsExtVo goodsVo, int expireTime)  {
-		int retry = 5;
+		int retry = 2;
 		OrderInfo orderInfo = null;
 		boolean retrySuccess = false;
 		while (!retrySuccess && retry-- > 0) {
@@ -319,14 +319,15 @@ public class SecondKillComposeService implements ISecondKillComposeService {
                 e.printStackTrace();
 			}
 			try {
-				Thread.sleep(6000);
+				Thread.sleep(60);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
 		if (!retrySuccess) {
 			log.warn("重试不成功，丢死信息请手动后台处理：{}，{}，{}", JSONObject.toJSONString(user), JSONObject.toJSONString(goodsVo), expireTime);
-            throw new RuntimeException();
+            System.out.println(count.getAndIncrement());
+			throw new RuntimeException();
 		}
 
 		return orderInfo;

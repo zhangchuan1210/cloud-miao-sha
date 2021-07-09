@@ -1,7 +1,7 @@
 package com.geekq.miaosha.order.controller;
 
 
-import com.geekq.miaosha.order.redis.redismanager.RedisLua;
+import com.geekq.miaosha.order.redis.RedisService;
 import com.geekq.miaosha.order.service.impl.MiaoShaUserComposeService;
 import com.geekq.miaosha.common.enums.resultbean.ResultGeekQ;
 import com.geekq.miaosha.common.vo.LoginVo;
@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.geekq.miaosha.common.enums.Constanst.COUNTLOGIN;
 
 @Controller
@@ -27,8 +30,10 @@ public class LoginController {
 
     @Autowired
     private MiaoShaUserComposeService userService;
+    @Autowired
+    private RedisService redisService;
 
-
+    private final String visitScriptPath="lua/visit.lua";
 
     @RequestMapping("/sayHello")
     public String sayHello() throws Exception {
@@ -42,8 +47,14 @@ public class LoginController {
         logger.info(loginVo.toString());
 
         //未完成
-          RedisLua.vistorCount(COUNTLOGIN);
+       /*   RedisLua.vistorCount(COUNTLOGIN);
         String count = RedisLua.getVistorCount(COUNTLOGIN).toString();
+        /
+        */
+        String visitorId=loginVo.getNickname();
+        List<String> keyList=new ArrayList<>();
+        keyList.add(COUNTLOGIN);
+        Long count=(Long) redisService.execScript(visitScriptPath,Long.class,keyList,visitorId);
         logger.info("访问网站的次数为:{}",count);
         model.addAttribute("count",count);
         return "login";

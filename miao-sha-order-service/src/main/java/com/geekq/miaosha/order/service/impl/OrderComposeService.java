@@ -89,7 +89,7 @@ public class OrderComposeService implements IOrderComposeService {
 		miaoshaOrder.setUserId(Long.valueOf(user.getNickname()));
 		boolean save=miaoshaOrderService.save(miaoshaOrder);
 		if(save){
-		   redisService.set(OrderKey.getMiaoshaOrderByUidGid,""+user.getId()+"_"+goodsId,miaoshaOrder) ;
+		   redisService.set(OrderKey.getMiaoshaOrderByUidGid,""+user.getNickname()+"_"+goodsId,miaoshaOrder) ;
 		}
 		return miaoshaOrder;
 	}

@@ -67,7 +67,7 @@ public class MiaoshaController {
         String checkResult=miaoShaComposeService.checkBeforeSecondKill(user, path, goodsId);
         if("success".equals(checkResult)){
             if(synchSecondKill){
-               checkResult=miaoShaComposeService.synProcessSecondKill(user, path, goodsId,true);
+               checkResult=miaoShaComposeService.synProcessSecondKill(user, path, goodsId,false);
 
             }else{
             checkResult= miaoShaComposeService.asyProcessSecondKill(user, path, goodsId,false);

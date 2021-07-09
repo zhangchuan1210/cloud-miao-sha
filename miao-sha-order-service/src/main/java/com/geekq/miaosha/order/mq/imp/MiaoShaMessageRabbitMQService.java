@@ -8,6 +8,7 @@ import com.geekq.miaosha.common.biz.entity.OrderInfo;
 import com.geekq.miaosha.order.mq.IMQService;
 import com.geekq.miaosha.order.mq.MQConfig;
 import com.geekq.miaosha.order.mq.MiaoShaMessage;
+import com.geekq.miaosha.order.service.ISecondKillMessageService;
 import com.geekq.miaosha.order.service.impl.SecondKillComposeService;
 import com.geekq.miaosha.common.utils.StringBeanUtil;
 
@@ -23,6 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.lang.reflect.Executable;
+import java.util.concurrent.ExecutionException;
 
 /*
 * 秒杀消息服务
@@ -34,6 +37,8 @@ public class MiaoShaMessageRabbitMQService implements IMQService {
     private RabbitTemplate rabbitTemplate;
     @Autowired
     SecondKillComposeService miaoShaComposeService;
+    @Autowired
+    ISecondKillMessageService secondKillMessageService;
 
     @Override
     public String send(Object... params) {
@@ -57,23 +62,26 @@ public class MiaoShaMessageRabbitMQService implements IMQService {
 
     @RabbitListener(queues=MQConfig.MIAOSHA_QUEUE)
     @RabbitHandler
-    public String receive(String in, Channel channel, Message message) throws IOException, InterruptedException {
+    public String receive(String in, Channel channel, Message message) throws IOException {
         log.info("receive message:"+in);
+        boolean save=false;
+        try {
         MiaoShaMessage mm  = (MiaoShaMessage) JSONObject.parseObject(in,MiaoShaMessage.class);
         MiaoshaUser user = mm.getUser();
         long goodsId = mm.getGoodsId();
-        //减库存 下订单 写入秒杀订单
-        boolean orderInfo= miaoShaComposeService.afterSecondKill(user, goodsId,true);
-        if(orderInfo){
-            try {
-                channel.basicAck(message.getMessageProperties().getDeliveryTag(),false);
-            } catch (IOException e) {
-                e.printStackTrace();
-                channel.basicNack(message.getMessageProperties().getDeliveryTag(), false,true);
+            //减库存 下订单 写入秒杀订单
+            save = miaoShaComposeService.afterSecondKill(user, goodsId, true);
+            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+        } catch (Exception e) {
+            channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);
+        } finally {
+            if(! save){//失败，入库保存，定时扫描
+                log.info("保存失败消息:{}",in);
+                boolean result=secondKillMessageService.saveFailMessage(in,0,"0",0);
             }
-        }else{
-            channel.basicNack(message.getMessageProperties().getDeliveryTag(), false,true);
+
         }
+
         return null;
     }
 }
