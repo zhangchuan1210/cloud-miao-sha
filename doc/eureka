@@ -1,0 +1,102 @@
+private void initScheduledTasks() {
+        int renewalIntervalInSecs;
+        int expBackOffBound;
+        if (this.clientConfig.shouldFetchRegistry()) {
+            renewalIntervalInSecs = this.clientConfig.getRegistryFetchIntervalSeconds();
+            expBackOffBound = this.clientConfig.getCacheRefreshExecutorExponentialBackOffBound();
+            this.cacheRefreshTask = new TimedSupervisorTask("cacheRefresh", this.scheduler, this.cacheRefreshExecutor, renewalIntervalInSecs, TimeUnit.SECONDS, expBackOffBound, new DiscoveryClient.CacheRefreshThread());
+            this.scheduler.schedule(this.cacheRefreshTask, (long)renewalIntervalInSecs, TimeUnit.SECONDS);
+        }
+
+        if (this.clientConfig.shouldRegisterWithEureka()) {
+            renewalIntervalInSecs = this.instanceInfo.getLeaseInfo().getRenewalIntervalInSecs();
+            expBackOffBound = this.clientConfig.getHeartbeatExecutorExponentialBackOffBound();
+            logger.info("Starting heartbeat executor: renew interval is: {}", renewalIntervalInSecs);
+            this.heartbeatTask = new TimedSupervisorTask("heartbeat", this.scheduler, this.heartbeatExecutor, renewalIntervalInSecs, TimeUnit.SECONDS, expBackOffBound, new DiscoveryClient.HeartbeatThread());
+            this.scheduler.schedule(this.heartbeatTask, (long)renewalIntervalInSecs, TimeUnit.SECONDS);
+            this.instanceInfoReplicator = new InstanceInfoReplicator(this, this.instanceInfo, this.clientConfig.getInstanceInfoReplicationIntervalSeconds(), 2);
+            this.statusChangeListener = new StatusChangeListener() {
+                public String getId() {
+                    return "statusChangeListener";
+                }
+
+                public void notify(StatusChangeEvent statusChangeEvent) {
+                    DiscoveryClient.logger.info("Saw local status change event {}", statusChangeEvent);
+                    DiscoveryClient.this.instanceInfoReplicator.onDemandUpdate();
+                }
+            };
+            if (this.clientConfig.shouldOnDemandUpdateStatusChange()) {
+                this.applicationInfoManager.registerStatusChangeListener(this.statusChangeListener);
+            }
+
+            this.instanceInfoReplicator.start(this.clientConfig.getInitialInstanceInfoReplicationIntervalSeconds());
+        } else {
+            logger.info("Not registering with Eureka server per configuration");
+        }
+
+    }
+
+
+
+  public TimedSupervisorTask(String name, ScheduledExecutorService scheduler, ThreadPoolExecutor executor, int timeout, TimeUnit timeUnit, int expBackOffBound, Runnable task) {
+        this.name = name;
+        this.scheduler = scheduler;
+        this.executor = executor;
+        this.timeoutMillis = timeUnit.toMillis((long)timeout);
+        this.task = task;
+        this.delay = new AtomicLong(this.timeoutMillis);
+        this.maxDelay = this.timeoutMillis * (long)expBackOffBound;
+        this.successCounter = Monitors.newCounter("success");
+        this.timeoutCounter = Monitors.newCounter("timeouts");
+        this.rejectedCounter = Monitors.newCounter("rejectedExecutions");
+        this.throwableCounter = Monitors.newCounter("throwables");
+        this.threadPoolLevelGauge = new LongGauge(MonitorConfig.builder("threadPoolUsed").build());
+        Monitors.registerObject(name, this);
+    }
+
+
+
+      public void run() {
+            Future future = null;
+
+            try {
+                future = this.executor.submit(this.task);
+                this.threadPoolLevelGauge.set((long)this.executor.getActiveCount());
+                future.get(this.timeoutMillis, TimeUnit.MILLISECONDS);
+                this.delay.set(this.timeoutMillis);
+                this.threadPoolLevelGauge.set((long)this.executor.getActiveCount());
+                this.successCounter.increment();
+            } catch (TimeoutException var12) {
+                logger.warn("task supervisor timed out", var12);
+                this.timeoutCounter.increment();
+                long currentDelay = this.delay.get();
+                long newDelay = Math.min(this.maxDelay, currentDelay * 2L);
+                this.delay.compareAndSet(currentDelay, newDelay);
+            } catch (RejectedExecutionException var13) {
+                if (!this.executor.isShutdown() && !this.scheduler.isShutdown()) {
+                    logger.warn("task supervisor rejected the task", var13);
+                } else {
+                    logger.warn("task supervisor shutting down, reject the task", var13);
+                }
+
+                this.rejectedCounter.increment();
+            } catch (Throwable var14) {
+                if (!this.executor.isShutdown() && !this.scheduler.isShutdown()) {
+                    logger.warn("task supervisor threw an exception", var14);
+                } else {
+                    logger.warn("task supervisor shutting down, can't accept the task");
+                }
+
+                this.throwableCounter.increment();
+            } finally {
+                if (future != null) {
+                    future.cancel(true);
+                }
+
+                if (!this.scheduler.isShutdown()) {
+                    this.scheduler.schedule(this, this.delay.get(), TimeUnit.MILLISECONDS);
+                }
+
+            }
+
+        }

@@ -51,11 +51,11 @@ public class DateTimeUtils {
 
 
 
-    public static void main(String[] args) {
+/*    public static void main(String[] args) {
         System.out.println(DateTimeUtils.dateToStr(new Date(),"yyyy-MM-dd HH:mm:ss"));
         System.out.println(DateTimeUtils.strToDate("2010-01-01 11:11:11","yyyy-MM-dd HH:mm:ss"));
 
-    }
+    }*/
 
 
 }

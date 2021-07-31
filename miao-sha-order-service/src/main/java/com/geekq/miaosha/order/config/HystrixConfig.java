@@ -14,11 +14,7 @@ public class HystrixConfig {
             return new ServletRegistrationBean(new HystrixMetricsStreamServlet(), "/hystrix.stream");
         }
 
-             /**
- 25      * AspectJ aspect to process methods which annotated with {@link HystrixCommand} annotation.
- 26      *
- 27      * {@link HystrixCommand} annotation used to specify some methods which should be processes as hystrix commands.
- 28      */
+
             @Bean
            public HystrixCommandAspect hystrixCommandAspect() {
                return new HystrixCommandAspect();
