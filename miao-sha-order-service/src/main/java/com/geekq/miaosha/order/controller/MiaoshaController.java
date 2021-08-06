@@ -1,6 +1,7 @@
 package com.geekq.miaosha.order.controller;
 
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
+import com.geekq.miaosha.common.enums.enums.ResultStatus;
 import com.geekq.miaosha.common.utils.SpringContextUtil;
 import com.geekq.miaosha.common.vo.GoodsExtVo;
 import com.geekq.miaosha.order.interceptor.RequireLogin;
@@ -64,17 +65,21 @@ public class MiaoshaController {
         long id= new Random().nextLong();
         user.setId(id);
         user.setNickname("13640250671");
-        String checkResult=miaoShaComposeService.checkBeforeSecondKill(user, path, goodsId);
-        if("success".equals(checkResult)){
+        ResultStatus checkResult123=miaoShaComposeService.checkBeforeSecondKill(user, path, goodsId);
+        if(MIAO_SHA_CHECK_SUCCESS.getCode()==(checkResult123.getCode())){
+
             if(synchSecondKill){
-               checkResult=miaoShaComposeService.synProcessSecondKill(user, path, goodsId,false);
+               checkResult123=miaoShaComposeService.synProcessSecondKill(user, path, goodsId,false);
 
             }else{
-            checkResult= miaoShaComposeService.asyProcessSecondKill(user, path, goodsId,false);
+            checkResult123= miaoShaComposeService.asyProcessSecondKill(user, path, goodsId,false);
 
             }
+
         }
-        result.setData(checkResult);
+            result.setData(checkResult123.getMessage());
+            result.setCode(checkResult123.getCode());
+
         return result;
     }
 
@@ -115,11 +120,11 @@ public class MiaoshaController {
             result.withError(SESSION_ERROR.getCode(), SESSION_ERROR.getMessage());
             return result;
         }
-        boolean check = iVerficateService.checkVerifyCode(user, goodsId, verifyCode);
+      /*  boolean check = iVerficateService.checkVerifyCode(user, goodsId, verifyCode);
         if (!check) {
             result.withError(REQUEST_ILLEGAL.getCode(), REQUEST_ILLEGAL.getMessage());
             return result;
-        }
+        }*/
         String path = miaoShaComposeService.createSecondKillPath(user, goodsId);
         result.setData(path);
         return result;

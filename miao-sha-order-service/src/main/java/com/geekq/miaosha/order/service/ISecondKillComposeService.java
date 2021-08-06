@@ -1,6 +1,7 @@
 package com.geekq.miaosha.order.service;
 
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
+import com.geekq.miaosha.common.enums.enums.ResultStatus;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 
@@ -17,5 +18,5 @@ public interface ISecondKillComposeService {
                     @HystrixProperty(name="circuitBreaker.sleepWindowInMilliseconds",value= "10000")
             }
     )
-    String checkBeforeSecondKill(MiaoshaUser user, String path, long goodsId);
+    ResultStatus checkBeforeSecondKill(MiaoshaUser user, String path, long goodsId);
 }

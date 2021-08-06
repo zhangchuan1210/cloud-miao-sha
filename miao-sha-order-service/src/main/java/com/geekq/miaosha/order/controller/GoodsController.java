@@ -73,8 +73,6 @@ public class GoodsController extends BaseController {
         List<GoodsVoOrder> goodsList = resultGoods.getData();
         */
 
-
-
         model.addAttribute("goodsList", goodsList);
         return render(request,response,model,"goods_list", GoodsKey.getGoodsList,"");
     }

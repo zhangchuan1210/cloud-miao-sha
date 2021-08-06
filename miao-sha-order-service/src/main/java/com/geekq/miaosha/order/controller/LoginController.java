@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
@@ -39,21 +40,17 @@ public class LoginController {
     private final String visitScriptPath="lua/visit.lua";
     private final int mod=1000000;
 
-    @RequestMapping("/sayHello")
-    public String sayHello() throws Exception {
-        return "login222";
-    }
-
-
-
     @RequestMapping("/to_login")
     public String tologin(LoginVo loginVo, Model model)  {
         logger.info(loginVo.toString());
         String visitorId=loginVo.getNickname();
         List<String> keyList=new ArrayList<>();
         String dayDate=DateUtil.format(new Date(),"YYYY-MM-dd");
+        //当前用户访问次数
         keyList.add(COUNTLOGIN);
+        //总访问次数
         keyList.add(COUNTALLLOGIN);
+        //每天总访问量
         keyList.add(dayDate+"_"+COUNTDAYLOGIN);
         Long temp= HashUtil.getHash(visitorId,mod);
         Long count=(Long) redisService.execScript(visitScriptPath,Long.class,keyList,visitorId,String.valueOf(temp));
@@ -64,10 +61,10 @@ public class LoginController {
 
     @RequestMapping(value = "/loginin",method = RequestMethod.POST)
     @ResponseBody
-    public ResultGeekQ<String> dologin(HttpServletResponse response, @Valid LoginVo loginVo) {
+    public ResultGeekQ<String> dologin(HttpServletRequest request,HttpServletResponse response, @Valid LoginVo loginVo) {
         ResultGeekQ<String> result = ResultGeekQ.build();
         logger.info(loginVo.toString());
-        userService.login(response, loginVo);
+        userService.login(request,response, loginVo);
         return result;
     }
 

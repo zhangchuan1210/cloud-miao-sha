@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.geekq.miaosha.common.biz.entity.MiaoshaOrder;
 import com.geekq.miaosha.common.biz.entity.MiaoshaUser;
 import com.geekq.miaosha.common.biz.entity.OrderInfo;
+import com.geekq.miaosha.common.enums.enums.ResultStatus;
 import com.geekq.miaosha.common.utils.MD5Utils;
 import com.geekq.miaosha.common.utils.SpringContextUtil;
 import com.geekq.miaosha.common.utils.UUIDUtil;
@@ -24,9 +25,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.geekq.miaosha.common.enums.enums.ResultStatus.*;
@@ -64,9 +65,9 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 					@HystrixProperty(name="circuitBreaker.sleepWindowInMilliseconds",value= "6000")
 			}
 	)
-	public String checkBeforeSecondKill(MiaoshaUser user, String path, long goodsId){
+	public ResultStatus checkBeforeSecondKill(MiaoshaUser user, String path, long goodsId){
 		log.info("check second kill.....");
-		String checkResult="success";
+
 		/*if (user == null) {
 			checkResult=SESSION_ERROR.getMessage();
 			return checkResult;
@@ -76,8 +77,8 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 		* */
 		boolean over=localOverMap.get(goodsId);
 		if(over){
-			checkResult=MIAO_SHA_OVER.getMessage();
-			return checkResult;
+			return MIAO_SHA_OVER;
+
 		}
 		/*
 		 * 校验秒杀url地址，防止刷流量
@@ -87,25 +88,25 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 			return checkResult;
 		}*/
 
-		return checkResult;
+		return MIAO_SHA_CHECK_SUCCESS;
 	}
 
-	public String synProcessSecondKill(MiaoshaUser user, String path, long goodsId, boolean syncOrder) throws InterruptedException {
-		String checkResult=this.doSecondKill(user,path,goodsId);
-		if("success".equals(checkResult)){
+	public ResultStatus synProcessSecondKill(MiaoshaUser user, String path, long goodsId, boolean syncOrder) throws InterruptedException {
+		ResultStatus checkResult=this.doSecondKill(user,path,goodsId);
+		if(MIAOSHA_SUCESS.getCode()==(checkResult.getCode())){
 			this.afterSecondKill(user,goodsId,syncOrder);
 
 		}
 		return checkResult;
 	}
 
-	public String asyProcessSecondKill(MiaoshaUser user, String path, long goodsId, boolean syncOrder){
+	public ResultStatus asyProcessSecondKill(MiaoshaUser user, String path, long goodsId, boolean syncOrder){
 		JSONObject paramsJson=new JSONObject();
 		paramsJson.put("user",user);
 		paramsJson.put("path",path);
 		paramsJson.put("goodsId",goodsId);
-		String checkResult=MQServiceFactory.create("rabbitmq","checkmiaosha").send(paramsJson.toString());
-		return checkResult;
+		MQServiceFactory.create("rabbitmq","checkmiaosha").send(paramsJson.toString());
+		return MIAOSHA_DOING;
 	}
 
     @HystrixCommand(fallbackMethod = "doSecondKillFallback",
@@ -124,7 +125,7 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 					@HystrixProperty(name="circuitBreaker.sleepWindowInMilliseconds",value= "1000")
 			}
 	)
-	public String doSecondKill(MiaoshaUser user, String path, long goodsId){
+	public ResultStatus doSecondKill(MiaoshaUser user, String path, long goodsId){
         log.info("do second kill.......");
 		String checkResult="success";
 
@@ -133,21 +134,26 @@ public class SecondKillComposeService implements ISecondKillComposeService {
          * */
         MiaoshaOrder miaoshaOrder= redisService.get(OrderKey.getMiaoshaOrderByUidGid,""+user.getNickname()+"_"+goodsId,MiaoshaOrder.class) ;;
         if(null !=miaoshaOrder){
-            checkResult= REPEATE_MIAOSHA.getMessage();
-            return checkResult;
+            return REPEATE_MIAOSHA;
         }
 
         /*
           有人说先校验库存，再扣减库存，也可以直接使用decr操作，通过返回值判断是否售罄,这样会导致缓存的库存数一直递减。
           如果先查再减需要保证两者操作的原子性，可以lua脚本
          */
-        Long stock = redisService.decr(GoodsKey.getMiaoshaGoodsStock, "" + goodsId);
-        if (stock <= 0) {
+        List<String> keys=new ArrayList();
+        keys.add(GoodsKey.getMiaoshaGoodsStock.getPrefix()+"" + goodsId);
+		Long stock=(Long) redisService.execScript("lua/secondkillstock.lua",Long.class, keys);
+        if (stock < 0) {
             localOverMap.put(goodsId, true);
-            checkResult=MIAO_SHA_OVER.getMessage();
-            return checkResult;
+			JSONObject jsonObject=new JSONObject();
+			jsonObject.put("goodsId",goodsId);
+			jsonObject.put("over",true);
+			redisService.publishMessage(MiaoshaKey.isGoodsOver.getPrefix(),jsonObject.toString());
+
+            return MIAO_SHA_OVER;
         }
-        return checkResult;
+        return MIAOSHA_SUCESS;
     }
 
         /*
@@ -225,9 +231,9 @@ public class SecondKillComposeService implements ISecondKillComposeService {
 	}
 
 
-	public String checkBeforeSecondKillFallBack(MiaoshaUser user, String path, long goodsId){
+	public ResultStatus checkBeforeSecondKillFallBack(MiaoshaUser user, String path, long goodsId){
 		log.error("触发秒杀校验熔断。。。。。");
-		return MIAOSHA_FAIL.getMessage();
+		return MIAOSHA_FAIL;
 	}
 
 	public String doSecondKillFallback(MiaoshaUser user, String path, long goodsId){

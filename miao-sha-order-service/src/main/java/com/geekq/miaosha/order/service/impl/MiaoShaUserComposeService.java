@@ -111,10 +111,6 @@ public class MiaoShaUserComposeService implements ISecondKillUserComposeService 
                 return false;
             }
 
-
-            //生成cookie 将session返回游览器 分布式session
-            String token= UUIDUtil.uuid();
-            addCookie(response, token, user);
         } catch (Exception e) {
             logger.error("注册失败",e);
             return false;
@@ -122,9 +118,12 @@ public class MiaoShaUserComposeService implements ISecondKillUserComposeService 
         return true;
     }
 
-    public boolean login(HttpServletResponse response , LoginVo loginVo) {
+    public boolean login(HttpServletRequest request, HttpServletResponse response, LoginVo loginVo) {
+
         if(loginVo ==null){
+
             throw  new GlobleException(SYSTEM_ERROR);
+
         }
 
         String mobile =loginVo.getNickname();
@@ -140,9 +139,14 @@ public class MiaoShaUserComposeService implements ISecondKillUserComposeService 
         if(!calcPass.equals(dbPass)){
             throw new GlobleException(PASSWORD_ERROR);
         }
+
         //生成cookie 将session返回游览器 分布式session
-        String token= UUIDUtil.uuid();
-        addCookie(response, token, user);
+
+        request.getSession().setAttribute(request.getSession().getId(),user);
+
+
+
+       // addCookie(response, token, user);
         return true ;
     }
 

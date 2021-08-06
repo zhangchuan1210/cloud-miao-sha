@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -74,6 +75,7 @@ public class RedisService {
 				 redisTemplate.opsForValue().set(realKey, str);
 			 }else {
 				 redisTemplate.opsForValue().set(realKey, str );
+				 redisTemplate.expire(realKey,seconds, TimeUnit.SECONDS);
 			 }
 
 			 return true;
@@ -146,20 +148,6 @@ public class RedisService {
 	public List<String> scanKeys(String key) {
 
 			List<String> keys = new ArrayList<String>();
-		/*	String cursor = "0";
-			ScanParams sp = new ScanParams();
-			sp.match("*"+key+"*");
-			sp.count(100);
-			do{
-				ScanResult<String> ret = redisTemplate.opsForList().(cursor, sp);
-				List<String> result = ret.getResult();
-				if(result!=null && result.size() > 0){
-					keys.addAll(result);
-				}
-				//再处理cursor
-
-			}while(!cursor.equals("0"));
-			*/
 			return keys;
 
 	}
@@ -194,6 +182,10 @@ public class RedisService {
 		return redisScript;
 	}
 
+
+	public void publishMessage(String chanel,Object object){
+		redisTemplate.convertAndSend(chanel, object);
+	}
 
 
 }

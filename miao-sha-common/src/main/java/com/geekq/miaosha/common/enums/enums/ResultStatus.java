@@ -54,9 +54,12 @@ public enum ResultStatus {
     /**
      * 秒杀模块
      */
+    MIAO_SHA_CHECK_SUCCESS(40000,"秒杀校验成功"),
     MIAO_SHA_OVER(40001,"商品已经秒杀完毕"),
     REPEATE_MIAOSHA(40002,"不能重复秒杀"),
-    MIAOSHA_FAIL(40003,"秒杀失败");
+    MIAOSHA_FAIL(40003,"秒杀失败"),
+    MIAOSHA_SUCESS(40005,"秒杀成功"),
+    MIAOSHA_DOING(40004,"正在秒杀中");
 
     /**
      * 商品模块
