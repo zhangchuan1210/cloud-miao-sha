@@ -156,7 +156,7 @@ function doMiaosha(path){
 			goodsId:$("#goodsId").val()
 		},
 		success:function(data){
-			if(data.code == 0){
+			if(data.code == 40005 || data.code==40004){
 				//window.location.href="/order_detail.htm?orderId="+data.data.id;
 				getMiaoshaResult($("#goodsId").val());
 			}else{
